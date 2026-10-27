@@ -289,30 +289,39 @@ function build(){
 }
 function updateStatus(){const intact=parts.filter(p=>p.visible).length;remainingEl.textContent=Math.round(intact/Math.max(parts.length,1)*100)+'%';shotsEl.textContent=shots}
 function say(s){toast.textContent=s;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1000)}
-function makeToolVisual(point){
+function makeToolVisual(point,normal){
+ // 도구는 카메라가 바라보는 방향에서 화면 앞으로 들어와 타격점 직전까지 뻗는다.
+ // 도구 전체를 월드 타격점 뒤에 놓지 않고 표면 앞쪽에 둬 건물 속으로 파고들지 않게 한다.
  const tool=new THREE.Group();
  const wood=new THREE.MeshStandardMaterial({color:weapon==='hammer'?'#8b5a32':'#b9783f',roughness:.72});
- const metal=new THREE.MeshStandardMaterial({color:'#9ba8b4',metalness:.65,roughness:.28});
+ const metal=new THREE.MeshStandardMaterial({color:'#aebbc7',metalness:.65,roughness:.28});
  if(weapon==='hammer'){
-  const handle=new THREE.Mesh(new THREE.CylinderGeometry(.09,.12,1.55,10),wood);
-  handle.position.y=-.1;handle.rotation.z=-.28;tool.add(handle);
-  const head=new THREE.Mesh(new THREE.BoxGeometry(.95,.38,.42),metal);
-  head.position.set(.18,.68,0);head.rotation.z=-.12;tool.add(head);
+  const handle=new THREE.Mesh(new THREE.CylinderGeometry(.13,.17,1.8,12),wood);
+  handle.position.y=-.12;handle.rotation.z=-.2;tool.add(handle);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(1.25,.52,.58),metal);
+  head.position.set(.2,.78,0);head.rotation.z=-.1;tool.add(head);
  }else{
-  const bat=new THREE.Mesh(new THREE.CylinderGeometry(.12,.22,1.9,12),wood);
-  bat.position.y=.05;bat.rotation.z=-.22;tool.add(bat);
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.09,.1,.42,10),new THREE.MeshStandardMaterial({color:'#343b43'}));
-  grip.position.y=-.83;grip.rotation.z=-.22;tool.add(grip);
+  const bat=new THREE.Mesh(new THREE.CylinderGeometry(.16,.28,2.35,14),wood);
+  bat.position.y=.08;bat.rotation.z=-.16;tool.add(bat);
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.12,.14,.52,12),new THREE.MeshStandardMaterial({color:'#343b43'}));
+  grip.position.y=-1.02;grip.rotation.z=-.16;tool.add(grip);
  }
- tool.position.copy(point).add(new THREE.Vector3(2.2,1.7,2.1));
- tool.scale.setScalar(1.85);
- tool.rotation.set(-.3,.35,weapon==='hammer'?-.95:-.7);
+ tool.scale.setScalar(2.65);
+ const viewDir=new THREE.Vector3();camera.getWorldDirection(viewDir);
+ const right=new THREE.Vector3().crossVectors(viewDir,camera.up).normalize();
+ const start=camera.position.clone().addScaledVector(viewDir,3.2).addScaledVector(right,1.35).addScaledVector(camera.up,-1.0);
+ // Raycast normal lets the tool approach from the viewer's side of the exact surface.
+ const towardViewer=camera.position.clone().sub(point).normalize();
+ const end=point.clone().addScaledVector(towardViewer,weapon==='hammer'?2.5:3.0);
+ const travel=point.clone().sub(start).normalize();
+ tool.position.copy(start);
+ tool.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),travel);
  scene.add(tool);
- effects.push({obj:tool,life:18,max:18,toolSwing:true,startRot:tool.rotation.z});
+ effects.push({obj:tool,life:16,max:16,toolSwing:true,start:start.clone(),end,travel});
 }
-function hit(point){
- shots++;makeToolVisual(point);shakePower=Math.min(0.38,shakePower+(weapon==='hammer'?.16:.28));
- const radius=weapon==='hammer'?1.05:1.7;
+function hit(point,normal){
+ shots++;makeToolVisual(point,normal);shakePower=Math.min(0.38,shakePower+(weapon==='hammer'?.16:.28));
+ const radius=weapon==='hammer'?1.35:2.0;
  const candidates=parts.filter(p=>p.visible&&p.userData.destructible!==false).map(p=>({p,world:p.getWorldPosition(new THREE.Vector3())})).map(o=>({...o,dist:o.world.distanceTo(point)})).filter(o=>o.dist<radius);
  candidates.sort((a,b)=>a.dist-b.dist);
  // Only local surface pieces break; a roof strike does not remove the entire roof.
@@ -336,7 +345,7 @@ renderer.domElement.addEventListener('pointerup',e=>{
  if(renderer.domElement.__dragged){renderer.domElement.__dragged=false;return}
  const rect=renderer.domElement.getBoundingClientRect();pointer.x=(e.clientX-rect.left)/rect.width*2-1;pointer.y=-(e.clientY-rect.top)/rect.height*2+1;
  raycaster.setFromCamera(pointer,camera);const hits=raycaster.intersectObjects(pickables(),false);
- if(hits.length)hit(hits[0].point);
+ if(hits.length)hit(hits[0].point,hits[0].face?.normal||new THREE.Vector3(0,0,1));
 });
 let down=null;renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};renderer.domElement.__dragged=false});
 renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>7)renderer.domElement.__dragged=true});
@@ -345,7 +354,7 @@ document.querySelectorAll('.weapon').forEach(btn=>btn.addEventListener('click',e
 document.querySelector('#reset').addEventListener('click',()=>{shots=0;build();say('건물을 다시 만들었어')});
 function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.65))}
 window.addEventListener('resize',resize);
-function animate(){requestAnimationFrame(animate);controls.update();if(shakePower>0.002){camera.position.x+=(Math.random()-.5)*shakePower;camera.position.y+=(Math.random()-.5)*shakePower;shakePower*=.88;}for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life--;if(e.toolSwing){const t=1-e.life/e.max;e.obj.rotation.z=e.startRot+Math.sin(t*Math.PI)*1.65;e.obj.position.x-=.035; e.obj.position.y-=.025;}else if(e.fragment){e.obj.position.add(e.velocity);e.velocity.y-=.003;e.obj.rotation.x+=.04;e.obj.rotation.z+=.03;e.obj.material.transparent=true;e.obj.material.opacity=Math.max(0,e.life/e.max)}else{const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1)*2);e.obj.material.opacity=Math.max(0,1-t)}if(e.life<=0){scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose();effects.splice(i,1)}}renderer.render(scene,camera)}
+function animate(){requestAnimationFrame(animate);controls.update();if(shakePower>0.002){camera.position.x+=(Math.random()-.5)*shakePower;camera.position.y+=(Math.random()-.5)*shakePower;shakePower*=.88;}for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life--;if(e.toolSwing){const t=1-e.life/e.max;const swing=Math.min(1,t*1.65);e.obj.position.lerpVectors(e.start,e.end,THREE.MathUtils.smoothstep(swing,0,1));e.obj.rotateZ(Math.sin(t*Math.PI)*.16);}else if(e.fragment){e.obj.position.add(e.velocity);e.velocity.y-=.003;e.obj.rotation.x+=.04;e.obj.rotation.z+=.03;e.obj.material.transparent=true;e.obj.material.opacity=Math.max(0,e.life/e.max)}else{const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1)*2);e.obj.material.opacity=Math.max(0,1-t)}if(e.life<=0){scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose();effects.splice(i,1)}}renderer.render(scene,camera)}
 build();animate();
 </script>
 </body>
