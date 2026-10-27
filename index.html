@@ -373,7 +373,7 @@ function hit(point,normal,screenX,targetObject){
   const cells=damageLocalPatch(item.p,point);
   for(const cell of cells){
    if(fragmentCount>42)break;
-   const count=Math.min(5,Math.max(2,Math.ceil(10/(cells.length||1))));
+   const count=cell.material?.map?1:Math.min(5,Math.max(2,Math.ceil(10/(cells.length||1))));
    for(let k=0;k<count&&fragmentCount<42;k++,fragmentCount++){
     const s=cell.size;
     const geom=new THREE.BoxGeometry(Math.max(.08,s.x*(.28+Math.random()*.28)),Math.max(.08,s.y*(.28+Math.random()*.28)),Math.max(.08,s.z*(.28+Math.random()*.28)));
