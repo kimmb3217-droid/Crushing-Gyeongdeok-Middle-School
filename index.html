@@ -21,10 +21,10 @@
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="가상 블록 건물 게임"></canvas>
+<canvas id="game" aria-label="가상의 학교 건물 게임"></canvas>
 <div class="hud">
  <div class="top">
-  <div class="brand"><strong>🏫 경덕중학교 뿌시기</strong><small>가상의 블록 건물 · 모바일 웹 테스트</small></div>
+  <div class="brand"><strong>🏫 경덕중학교 뿌시기</strong><small>가상의 한국 중학교 외관 · 모바일 웹 테스트</small></div>
   <div class="stats">남은 블록 <b id="remaining">105</b><br>공격 횟수 <b id="shots">0</b></div>
  </div>
  <div class="bottom">
@@ -61,8 +61,20 @@ function draw(){if(!W||!H)return;ctx.clearRect(0,0,W,H);let g=ctx.createLinearGr
  // ground plane
  let ground=project({x:0,y:-.05,z:0}),r=unit*3.8;ctx.beginPath();ctx.ellipse(W*.5,H*.62,r*1.35,r*.68,0,0,Math.PI*2);ctx.fillStyle='#49627355';ctx.fill();ctx.strokeStyle='#7891a566';ctx.stroke();
  let ordered=blocks.filter(b=>b.alive).map(cube).sort((a,b)=>a.depth-b.depth);
- // draw order corrected by depth
- for(const item of ordered){let b=item.b,p=project(b),u=p.unit*.34,x=p.x,y=p.y;poly([{x:x-u,y:y-u*.5},{x:x,y:y},{x:x,y:y+u*1.15},{x:x-u,y:y+u*.65}],'#344a61');poly([{x:x,y:y},{x:x+u,y:y-u*.5},{x:x+u,y:y+u*.65},{x:x,y:y+u*1.15}],b.hp===2?'#526d86':'#607b95');poly([{x:x,y:y-u},{x:x+u,y:y-u*.5},{x:x,y:y},{x:x-u,y:y-u*.5}],b.hp===2?'#91b1c9':'#8ba7bd')}
+ // 가상의 한국 중학교 외관: 밝은 외벽과 반복 창문
+ for(const item of ordered){
+   let b=item.b,p=project(b),u=p.unit*.34,x=p.x,y=p.y;
+   const tint=b.hp===2?'#b9c8d4':'#d7e0e7';
+   poly([{x:x-u,y:y-u*.5},{x:x,y:y},{x:x,y:y+u*1.15},{x:x-u,y:y+u*.65}],'#879baa');
+   poly([{x:x,y:y},{x:x+u,y:y-u*.5},{x:x+u,y:y+u*.65},{x:x,y:y+u*1.15}],tint);
+   poly([{x:x,y:y-u},{x:x+u,y:y-u*.5},{x:x,y:y},{x:x-u,y:y-u*.5}],b.hp===2?'#edf3f6':'#f7fafc');
+   if(b.z===Math.max(...blocks.map(q=>q.z)) && b.y>=0){
+     const wx=x+u*.20,wy=y+u*.20,ww=u*.36,wh=u*.34;
+     ctx.fillStyle='#527f99';ctx.fillRect(wx,wy,ww,wh);
+     ctx.strokeStyle='#eaf4f8';ctx.lineWidth=Math.max(1,u*.035);ctx.strokeRect(wx,wy,ww,wh);
+     ctx.beginPath();ctx.moveTo(wx+ww/2,wy);ctx.lineTo(wx+ww/2,wy+wh);ctx.moveTo(wx,wy+wh/2);ctx.lineTo(wx+ww,wy+wh/2);ctx.stroke();
+   }
+ }
  for(const e of effects){let t=1-e.life/e.max;if(e.type==='beam'){ctx.strokeStyle='#7cf3ff';ctx.lineWidth=3*(1-t)+.5;ctx.beginPath();ctx.moveTo(e.x1,e.y1);ctx.lineTo(e.x2,e.y2);ctx.stroke();ctx.strokeStyle='#e3ffff';ctx.lineWidth=1;ctx.stroke()}else{ctx.beginPath();ctx.arc(e.x,e.y,e.r*t,0,Math.PI*2);ctx.strokeStyle=e.color;ctx.lineWidth=4*(1-t)+1;ctx.stroke();ctx.fillStyle=e.color+'22';ctx.fill()}}
  updateStats();
 }
