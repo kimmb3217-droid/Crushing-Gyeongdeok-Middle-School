@@ -28,7 +28,7 @@
   <div class="stats">건물 상태 <b id="remaining">100%</b><br>작동 횟수 <b id="shots">0</b></div>
  </div>
  <div class="bottom">
-  <div class="hint">드래그: 3D 회전<br>두 손가락/휠: 확대·축소<br>도구 선택 후 건물을 눌러 타격</div>
+  <div class="hint">드래그: 3D 회전<br>두 손가락/휠: 확대·축소<br>건물을 누르면 주변까지 시원하게 파괴</div>
   <div class="controls">
    <div class="weapons">
     <button class="weapon" data-weapon="hammer"><span aria-hidden="true">🔨</span> 망치</button>
@@ -324,75 +324,71 @@ function makeToolVisual(point,normal,screenX){
  tool.position.copy(start);tool.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),travel);scene.add(tool);
  effects.push({obj:tool,life:16,max:16,toolSwing:true,start:start.clone(),end,travel});
 }
-function damageLocalPatch(p,point){
- const worldCenter=p.getWorldPosition(new THREE.Vector3());
- const worldScale=p.getWorldScale(new THREE.Vector3());
- const size=new THREE.Vector3(Math.max(.08,Math.abs(worldScale.x)),Math.max(.08,Math.abs(worldScale.y)),Math.max(.08,Math.abs(worldScale.z)));
- // Textured signs/posters are atomic: splitting their UVs would repeat or scramble the lettering.
- if(p.material?.map){
-  p.visible=false;
-  return [{center:worldCenter.clone(),size:size.clone(),material:p.material,source:p}];
- }
- const nx=size.x>2.5?8:size.x>.9?5:1, ny=size.y>2.5?6:size.y>.9?4:1, nz=size.z>2.5?6:size.z>.9?4:1;
- const cellSize=new THREE.Vector3(size.x/nx,size.y/ny,size.z/nz);
- const impactRadius=weapon==='bat'?Math.max(1.05,Math.min(2.05,Math.max(size.x,size.y,size.z)*.43)):.9;
- const broken=[],kept=[];
- // Use each cell's world-space center; this keeps the damage patch centered on the actual hit.
- for(let ix=0;ix<nx;ix++)for(let iy=0;iy<ny;iy++)for(let iz=0;iz<nz;iz++){
-  const center=worldCenter.clone().add(new THREE.Vector3(-size.x/2+cellSize.x*(ix+.5),-size.y/2+cellSize.y*(iy+.5),-size.z/2+cellSize.z*(iz+.5)));
-  const d=center.distanceTo(point);
-  const cell={center,size:cellSize.clone(),d,ix,iy,iz,material:p.material,source:p};
-  if(d<impactRadius+Math.min(cellSize.x,cellSize.y,cellSize.z)*.48)broken.push(cell);
-  else kept.push(cell);
- }
- if(!broken.length){p.visible=false;return [{center:worldCenter.clone(),size:size.clone(),material:p.material,source:p}];}
+function damageLocalPatch(p,point,normal){
+ // Smash-style destruction: remove the actual mesh instead of subdividing it into cubes.
+ if(!p||!p.visible)return [];
+ const center=p.getWorldPosition(new THREE.Vector3());
+ const scale=p.getWorldScale(new THREE.Vector3());
+ const size=new THREE.Vector3(Math.abs(scale.x),Math.abs(scale.y),Math.abs(scale.z));
  p.visible=false;
- for(const cell of kept){
-  const mesh=new THREE.Mesh(new THREE.BoxGeometry(cell.size.x*.985,cell.size.y*.985,cell.size.z*.985),p.material);
-  mesh.position.copy(cell.center);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.destructible=true;mesh.userData.hp=1;
-  scene.add(mesh);parts.push(mesh);
+ return [{center,size,material:p.material,geometry:p.geometry,source:p,normal:normal.clone()}];
+}
+function makeDebris(cell,point,normal,power){
+ const out=[];
+ const sourceMat=Array.isArray(cell.material)?cell.material[0]:cell.material;
+ const color=sourceMat?.color?sourceMat.color.clone():new THREE.Color('#9ba9b0');
+ const count=Math.min(12,Math.max(4,Math.ceil((cell.size.x+cell.size.y+cell.size.z)*2.2)));
+ for(let i=0;i<count;i++){
+  // Irregular chips and splinters, not a grid of box-shaped building blocks.
+  const shard=(i%3===0)
+   ?new THREE.Mesh(new THREE.ConeGeometry(.10+Math.random()*.18,.24+Math.random()*.42,5),new THREE.MeshStandardMaterial({color,roughness:.82}))
+   :new THREE.Mesh(new THREE.IcosahedronGeometry(.10+Math.random()*.22,0),new THREE.MeshStandardMaterial({color,roughness:.86}));
+  shard.scale.set(.65+Math.random()*.9,.55+Math.random()*1.15,.65+Math.random()*.9);
+  shard.position.copy(cell.center).add(new THREE.Vector3((Math.random()-.5)*Math.max(.2,cell.size.x*.62),(Math.random()-.5)*Math.max(.2,cell.size.y*.62),(Math.random()-.5)*Math.max(.2,cell.size.z*.62)));
+  shard.rotation.set(Math.random()*Math.PI,Math.random()*Math.PI,Math.random()*Math.PI);
+  shard.castShadow=true;scene.add(shard);
+  const dir=shard.position.clone().sub(point);
+  if(dir.lengthSq()<.04)dir.copy(normal);
+  dir.normalize().addScaledVector(normal,.35).normalize();
+  const velocity=dir.multiplyScalar(power*(.65+Math.random()*1.15));
+  velocity.y+=.18+Math.random()*.48;
+  out.push({obj:shard,life:170+Math.random()*70,max:240,velocity,angular:new THREE.Vector3((Math.random()-.5)*.34,(Math.random()-.5)*.34,(Math.random()-.5)*.34),fragment:true,bounces:0});
  }
- return broken;
+ return out;
 }
 function hit(point,normal,screenX,targetObject){
  shots++;makeToolVisual(point,normal,screenX);
- shakePower=Math.min(.72,shakePower+(weapon==='hammer'?.24:.48));
- const radius=weapon==='bat'?1.9:1.05;
- // Hit the selected piece and nearby pieces, creating a wider collapse instead of a tiny pinhole.
- const nearby=parts.filter(p=>p.visible&&p.userData.destructible!==false).map(p=>{
-  const center=p.getWorldPosition(new THREE.Vector3()),scale=p.getWorldScale(new THREE.Vector3());
+ shakePower=Math.min(.9,shakePower+(weapon==='hammer'?.28:.52));
+ const radius=weapon==='bat'?2.65:1.45;
+ const targets=parts.filter(p=>p.visible&&p.userData.destructible!==false).map(p=>{
+  const center=p.getWorldPosition(new THREE.Vector3()),s=p.getWorldScale(new THREE.Vector3());
   const nearest=new THREE.Vector3(
-   THREE.MathUtils.clamp(point.x,center.x-Math.abs(scale.x)/2,center.x+Math.abs(scale.x)/2),
-   THREE.MathUtils.clamp(point.y,center.y-Math.abs(scale.y)/2,center.y+Math.abs(scale.y)/2),
-   THREE.MathUtils.clamp(point.z,center.z-Math.abs(scale.z)/2,center.z+Math.abs(scale.z)/2));
+   THREE.MathUtils.clamp(point.x,center.x-Math.abs(s.x)/2,center.x+Math.abs(s.x)/2),
+   THREE.MathUtils.clamp(point.y,center.y-Math.abs(s.y)/2,center.y+Math.abs(s.y)/2),
+   THREE.MathUtils.clamp(point.z,center.z-Math.abs(s.z)/2,center.z+Math.abs(s.z)/2));
   return {p,center,dist:nearest.distanceTo(point)};
- }).filter(o=>o.p===targetObject||o.dist<radius).sort((a,b)=>(a.p===targetObject?-1:b.p===targetObject?1:a.dist-b.dist)).slice(0,weapon==='bat'?12:5);
- const viewDir=new THREE.Vector3();camera.getWorldDirection(viewDir);
- let fragmentCount=0;
- for(const item of nearby){
-  const cells=damageLocalPatch(item.p,point);
+ }).filter(o=>o.p===targetObject||o.dist<radius).sort((a,b)=>(a.p===targetObject?-1:b.p===targetObject?1:a.dist-b.dist));
+ const impactNormal=normal.clone().normalize();
+ const power=weapon==='bat'?1.15:.72;
+ let debris=0;
+ for(const item of targets){
+  if(debris>=30)break;
+  const cells=damageLocalPatch(item.p,point,impactNormal);
   for(const cell of cells){
-   if(fragmentCount>42)break;
-   const count=cell.material?.map?1:Math.min(5,Math.max(2,Math.ceil(10/(cells.length||1))));
-   for(let k=0;k<count&&fragmentCount<42;k++,fragmentCount++){
-    const s=cell.size;
-    const geom=new THREE.BoxGeometry(Math.max(.08,s.x*(.28+Math.random()*.28)),Math.max(.08,s.y*(.28+Math.random()*.28)),Math.max(.08,s.z*(.28+Math.random()*.28)));
-    const mat=cell.material.clone();
-    // Keep a sign's original texture on one whole shard, never on a grid of repeated copies.
-    const frag=new THREE.Mesh(geom,mat);
-    frag.position.copy(cell.center).add(new THREE.Vector3((Math.random()-.5)*s.x*.25,(Math.random()-.5)*s.y*.25,(Math.random()-.5)*s.z*.25));
-    frag.castShadow=true;frag.receiveShadow=true;scene.add(frag);
-    const outward=frag.position.clone().sub(point);
-    if(outward.lengthSq()<.01)outward.copy(normal);
-    outward.normalize();
-    const velocity=outward.multiplyScalar((weapon==='hammer'?.5:.95)+Math.random()*.8).addScaledVector(viewDir,.22+Math.random()*.24);
-    velocity.y+=.18+Math.random()*.38;
-    effects.push({obj:frag,life:210,max:210,velocity,angular:new THREE.Vector3((Math.random()-.5)*.3,(Math.random()-.5)*.3,(Math.random()-.5)*.3),fragment:true,bounces:0});
+   const shards=makeDebris(cell,point,impactNormal,power);
+   for(const shard of shards){
+    if(debris>=30){scene.remove(shard.obj);shard.obj.geometry.dispose();shard.obj.material.dispose();continue;}
+    effects.push(shard);debris++;
    }
   }
  }
- const puff=new THREE.Mesh(new THREE.IcosahedronGeometry(.18,1),new THREE.MeshBasicMaterial({color:'#e9d9b8',transparent:true,opacity:.8}));
- puff.position.copy(point);scene.add(puff);effects.push({obj:puff,life:13,max:13,scale:2.3});
+ // A visible expanding impact ring and dust puff sell the hit without block-grid visuals.
+ const ring=new THREE.Mesh(new THREE.RingGeometry(.18,.28,32),new THREE.MeshBasicMaterial({color:weapon==='bat'?'#ffd28a':'#d9e6ed',transparent:true,opacity:.9,side:THREE.DoubleSide,depthWrite:false}));
+ ring.position.copy(point).addScaledVector(impactNormal,.035);
+ ring.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),impactNormal);
+ scene.add(ring);effects.push({obj:ring,life:18,max:18,scale:7,ring:true});
+ const puff=new THREE.Mesh(new THREE.IcosahedronGeometry(.25,1),new THREE.MeshBasicMaterial({color:'#d9d2c4',transparent:true,opacity:.62,depthWrite:false}));
+ puff.position.copy(point);scene.add(puff);effects.push({obj:puff,life:18,max:18,scale:3.6});
  updateStatus();
 }
 const pickables=()=>parts.filter(p=>p.visible);
@@ -412,7 +408,7 @@ document.querySelectorAll('.weapon').forEach(btn=>btn.addEventListener('click',e
 document.querySelector('#reset').addEventListener('click',()=>{shots=0;build();say('건물을 다시 만들었어')});
 function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.65))}
 window.addEventListener('resize',resize);
-function animate(){requestAnimationFrame(animate);controls.update();if(shakePower>0.002){const j=shakePower;camera.position.add(new THREE.Vector3((Math.random()-.5)*j,(Math.random()-.5)*j,(Math.random()-.5)*j));shakePower*=.86;}for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life--;if(e.toolSwing){const t=1-e.life/e.max;const swing=THREE.MathUtils.smoothstep(Math.min(1,t*1.28),0,1);e.obj.position.lerpVectors(e.start,e.end,swing);}else if(e.fragment){e.velocity.y-=.012;e.obj.position.add(e.velocity);e.obj.rotation.x+=e.angular.x;e.obj.rotation.y+=e.angular.y;e.obj.rotation.z+=e.angular.z;if(e.obj.position.y<.12){e.obj.position.y=.12;if(e.velocity.y<0){e.velocity.y=-e.velocity.y*(e.bounces===0?.42:.18);e.velocity.x*=.72;e.velocity.z*=.72;e.bounces++;}if(Math.abs(e.velocity.y)<.025&&e.bounces>1){e.velocity.y=0;e.velocity.x*=.94;e.velocity.z*=.94;}}e.obj.material.transparent=true;e.obj.material.opacity=Math.min(1,e.life/30)}else{const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1)*2);e.obj.material.opacity=Math.max(0,1-t)}if(e.life<=0){scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose();effects.splice(i,1)}}renderer.render(scene,camera)}
+function animate(){requestAnimationFrame(animate);controls.update();if(shakePower>0.002){const j=shakePower;camera.position.add(new THREE.Vector3((Math.random()-.5)*j,(Math.random()-.5)*j,(Math.random()-.5)*j));shakePower*=.86;}for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life--;if(e.toolSwing){const t=1-e.life/e.max;const swing=THREE.MathUtils.smoothstep(Math.min(1,t*1.28),0,1);e.obj.position.lerpVectors(e.start,e.end,swing);}else if(e.ring){const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1));e.obj.material.opacity=Math.max(0,1-t);}else if(e.fragment){e.velocity.y-=.012;e.obj.position.add(e.velocity);e.obj.rotation.x+=e.angular.x;e.obj.rotation.y+=e.angular.y;e.obj.rotation.z+=e.angular.z;if(e.obj.position.y<.12){e.obj.position.y=.12;if(e.velocity.y<0){e.velocity.y=-e.velocity.y*(e.bounces===0?.42:.18);e.velocity.x*=.72;e.velocity.z*=.72;e.bounces++;}if(Math.abs(e.velocity.y)<.025&&e.bounces>1){e.velocity.y=0;e.velocity.x*=.94;e.velocity.z*=.94;}}e.obj.material.transparent=true;e.obj.material.opacity=Math.min(1,e.life/30)}else{const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1)*2);e.obj.material.opacity=Math.max(0,1-t)}if(e.life<=0){scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose();effects.splice(i,1)}}renderer.render(scene,camera)}
 build();animate();
 </script>
 </body>
