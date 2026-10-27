@@ -49,15 +49,15 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const canvas=document.querySelector('#view'), remainingEl=document.querySelector('#remaining'),shotsEl=document.querySelector('#shots'),toast=document.querySelector('#toast');
 const scene=new THREE.Scene();scene.background=new THREE.Color('#142238');scene.fog=new THREE.Fog('#142238',28,65);
 const camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,.1,120);camera.position.set(19,15,22);
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=false;
 const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(-2,2.4,0);controls.enableDamping=true;controls.dampingFactor=.06;controls.minDistance=7;controls.maxDistance=34;controls.maxPolarAngle=Math.PI*.48;
 scene.add(new THREE.HemisphereLight(0xc9e6ff,0x354254,2.0));
-const sun=new THREE.DirectionalLight(0xfff1d6,3.2);sun.position.set(-8,16,10);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);scene.add(sun);
+const sun=new THREE.DirectionalLight(0xfff1d6,2.2);sun.position.set(-8,16,10);sun.castShadow=false;scene.add(sun);
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:'#26384a',roughness:.95}));ground.rotation.x=-Math.PI/2;ground.position.y=-.08;ground.receiveShadow=true;scene.add(ground);
 const grid=new THREE.GridHelper(70,70,'#486176','#31465a');grid.position.y=-.06;scene.add(grid);
 let building=new THREE.Group(),parts=[],effects=[],weapon='laser',shots=0,toastTimer;
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
-function mat(color,roughness=.78){return new THREE.MeshStandardMaterial({color,roughness,metalness:.02})}
+const materialCache=new Map();\nfunction mat(color,roughness=.78){const key=color+'|'+roughness;if(materialCache.has(key))return materialCache.get(key);const m=new THREE.MeshStandardMaterial({color,roughness,metalness:.02});materialCache.set(key,m);return m}
 const wallMat=mat('#d5dce0'),trimMat=mat('#eef1ed'),roofMat=mat('#4d6275'),glassMat=new THREE.MeshStandardMaterial({color:'#4d829d',roughness:.25,metalness:.15}),darkGlass=mat('#233847'),doorMat=mat('#6e8b9c'),concreteMat=mat('#9ba9b0');
 function addPart(geometry,material,pos,parent=building,destructible=true){const mesh=new THREE.Mesh(geometry,material);mesh.position.set(...pos);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.destructible=destructible;mesh.userData.hp=1;parent.add(mesh);if(destructible)parts.push(mesh);return mesh}
 function box(w,h,d,material,pos,parent=building,destructible=true){return addPart(new THREE.BoxGeometry(w,h,d),material,pos,parent,destructible)}
@@ -218,7 +218,7 @@ function hit(point){
   const p=candidates[i].p;p.visible=false;
   // small fragments fly away from the impact point
   const pos=p.getWorldPosition(new THREE.Vector3());const geom=new THREE.BoxGeometry(.22,.22,.22);
-  const frag=new THREE.Mesh(geom,p.material);frag.position.copy(pos);frag.castShadow=true;scene.add(frag);
+  const frag=new THREE.Mesh(geom,p.material.clone());frag.position.copy(pos);frag.castShadow=true;scene.add(frag);
   const dir=pos.clone().sub(point).normalize();dir.y=Math.abs(dir.y)+.8;
   effects.push({obj:frag,life:55,max:55,velocity:dir.multiplyScalar(.045+Math.random()*.055),fragment:true});
  }
@@ -236,7 +236,7 @@ renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.cli
 renderer.domElement.addEventListener('pointercancel',()=>{down=null});
 document.querySelectorAll('.weapon').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();weapon=btn.dataset.weapon;document.querySelectorAll('.weapon').forEach(x=>x.classList.toggle('active',x===btn));say(({laser:'광선 선택',impact:'충격 선택',wave:'파동 선택'})[weapon])}));
 document.querySelector('#reset').addEventListener('click',()=>{shots=0;build();say('건물을 다시 만들었어')});
-function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2))}
+function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.25))}
 window.addEventListener('resize',resize);
 function animate(){requestAnimationFrame(animate);controls.update();for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life--;if(e.fragment){e.obj.position.add(e.velocity);e.velocity.y-=.003;e.obj.rotation.x+=.04;e.obj.rotation.z+=.03;e.obj.material.transparent=true;e.obj.material.opacity=Math.max(0,e.life/e.max)}else{const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1)*2);e.obj.material.opacity=Math.max(0,1-t)}if(e.life<=0){scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose();effects.splice(i,1)}}renderer.render(scene,camera)}
 build();animate();
