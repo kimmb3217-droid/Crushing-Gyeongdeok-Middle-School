@@ -291,91 +291,70 @@ function updateStatus(){const intact=parts.filter(p=>p.visible).length;remaining
 function say(s){}
 function makeToolVisual(point,normal,screenX){
  const tool=new THREE.Group();
- const wood=new THREE.MeshStandardMaterial({color:weapon==='hammer'?'#79502f':'#a76530',roughness:.68});
- const darkWood=new THREE.MeshStandardMaterial({color:'#4b3020',roughness:.85});
+ const wood=new THREE.MeshStandardMaterial({color:weapon==='hammer'?'#79502f':'#b98245',roughness:.52});
+ const darkWood=new THREE.MeshStandardMaterial({color:'#342820',roughness:.78});
  const metal=new THREE.MeshStandardMaterial({color:'#aeb8c1',metalness:.78,roughness:.25});
  if(weapon==='hammer'){
-  const handle=new THREE.Mesh(new THREE.CylinderGeometry(.105,.14,1.9,12),wood);
-  handle.position.y=-.22;tool.add(handle);
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.13,.12,.42,12),darkWood);
-  grip.position.y=-1.0;tool.add(grip);
-  const head=new THREE.Mesh(new THREE.BoxGeometry(1.12,.42,.44),metal);
-  head.position.set(0,.7,0);tool.add(head);
-  const claw=new THREE.Mesh(new THREE.BoxGeometry(.22,.34,.4),metal);
-  claw.position.set(.57,.68,0);claw.rotation.z=-.28;tool.add(claw);
+  const handle=new THREE.Mesh(new THREE.CylinderGeometry(.105,.14,1.9,12),wood);handle.position.y=-.22;tool.add(handle);
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.13,.12,.42,12),darkWood);grip.position.y=-1.0;tool.add(grip);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(1.12,.42,.44),metal);head.position.set(0,.7,0);tool.add(head);
+  const claw=new THREE.Mesh(new THREE.BoxGeometry(.22,.34,.4),metal);claw.position.set(.57,.68,0);claw.rotation.z=-.28;tool.add(claw);
  }else{
-  // Baseball bat: tapered barrel, narrow handle, dark grip and end knob.
-  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.17,.29,1.65,16),wood);
-  barrel.position.y=.42;tool.add(barrel);
-  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.105,.17,.5,14),wood);
-  neck.position.y=-.62;tool.add(neck);
-  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.105,.11,.56,14),darkWood);
-  grip.position.y=-1.12;tool.add(grip);
-  const knob=new THREE.Mesh(new THREE.CylinderGeometry(.15,.13,.12,14),darkWood);
-  knob.position.y=-1.46;tool.add(knob);
-  for(let i=0;i<4;i++){
-   const ring=new THREE.Mesh(new THREE.TorusGeometry(.108,.018,6,16),new THREE.MeshStandardMaterial({color:'#c9cbd0',metalness:.35,roughness:.5}));
-   ring.rotation.x=Math.PI/2;ring.position.y=-1.29+i*.09;tool.add(ring);
-  }
+  // New bat: light ash wood, rounded barrel, tapered neck, wrapped black grip and end cap.
+  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(.205,.34,1.72,24),wood);barrel.position.y=.52;tool.add(barrel);
+  const tip=new THREE.Mesh(new THREE.SphereGeometry(.205,20,12),wood);tip.scale.set(1, .42, 1);tip.position.y=1.38;tool.add(tip);
+  const neck=new THREE.Mesh(new THREE.CylinderGeometry(.115,.205,.58,18),wood);neck.position.y=-.62;tool.add(neck);
+  const grip=new THREE.Mesh(new THREE.CylinderGeometry(.11,.115,.64,18),darkWood);grip.position.y=-1.18;tool.add(grip);
+  for(let i=0;i<6;i++){const wrap=new THREE.Mesh(new THREE.TorusGeometry(.113,.012,6,18),new THREE.MeshStandardMaterial({color:i%2?'#77716b':'#272727',roughness:.85}));wrap.rotation.x=Math.PI/2;wrap.position.y=-1.43+i*.085;tool.add(wrap);}
+  const knob=new THREE.Mesh(new THREE.SphereGeometry(.145,16,10),darkWood);knob.scale.set(1,.55,1);knob.position.y=-1.54;tool.add(knob);
  }
- tool.scale.setScalar(2.15);
+ tool.scale.setScalar(1.65);
  const towardViewer=camera.position.clone().sub(point).normalize();
- if(weapon==='bat'){
-  // The bat is held outside the surface and sweeps across the impact point in a wide horizontal arc.
-  const pivot=point.clone().addScaledVector(towardViewer,3.7).add(new THREE.Vector3(0,1.0,0));
-  const horizontal=new THREE.Vector3(-towardViewer.z,0,towardViewer.x).normalize();
-  tool.position.copy(pivot);
-  tool.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),horizontal);
-  scene.add(tool);
-  effects.push({obj:tool,life:20,max:20,toolSwing:true,batSwing:true,pivot:pivot.clone(),baseQuat:tool.quaternion.clone(),sweep:1.65});
+ const right=new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion).normalize();
+ const side=Math.abs(screenX)<.16?0:(screenX>0?1:-1);
+ let start,end,travel;
+ if(side===0){
+  start=point.clone().add(new THREE.Vector3(0,4.8,0)).addScaledVector(towardViewer,3.0);
+  end=point.clone().addScaledVector(towardViewer,1.65);
+  travel=end.clone().sub(start).normalize();
  }else{
-  // Hammer drops from overhead and stops before its head enters the surface.
-  const start=point.clone().add(new THREE.Vector3(0,7.0,0)).addScaledVector(towardViewer,3.3);
-  const end=point.clone().addScaledVector(towardViewer,3.25);
-  const travel=end.clone().sub(start).normalize();
-  tool.position.copy(start);
-  tool.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),travel);
-  scene.add(tool);
-  effects.push({obj:tool,life:18,max:18,toolSwing:true,start:start.clone(),end,travel});
+  start=point.clone().addScaledVector(right,side*3.6).add(new THREE.Vector3(0,1.55,0)).addScaledVector(towardViewer,3.0);
+  end=point.clone().addScaledVector(towardViewer,1.65).addScaledVector(right,side*.15);
+  travel=end.clone().sub(start).normalize();
  }
+ tool.position.copy(start);tool.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),travel);scene.add(tool);
+ effects.push({obj:tool,life:16,max:16,toolSwing:true,start:start.clone(),end,travel});
 }
 function damageLocalPatch(p,point){
  const worldCenter=p.getWorldPosition(new THREE.Vector3());
  const worldScale=p.getWorldScale(new THREE.Vector3());
  const size=new THREE.Vector3(Math.abs(worldScale.x),Math.abs(worldScale.y),Math.abs(worldScale.z));
- // Split large panels into small independent cells; only the cell nearest the contact point breaks.
- const nx=size.x>2.5?5:size.x>.9?3:1;
- const ny=size.y>2.5?4:size.y>.9?3:1;
- const nz=size.z>2.5?4:size.z>.9?3:1;
- if(nx===1&&ny===1&&nz===1){p.visible=false;return [p,worldCenter,size];}
+ const nx=size.x>2.5?7:size.x>.9?5:1, ny=size.y>2.5?5:size.y>.9?4:1, nz=size.z>2.5?5:size.z>.9?4:1;
  const cellSize=new THREE.Vector3(size.x/nx,size.y/ny,size.z/nz);
- let nearest=null,best=Infinity;
- const cells=[];
+ // Break a broad impact patch so it feels like a solid hit, while keeping untouched blocks in place.
+ const impactRadius=weapon==='bat'?Math.max(.82,Math.min(1.65,Math.max(size.x,size.y,size.z)*.34)):.72;
+ let broken=[],kept=[];
  for(let ix=0;ix<nx;ix++)for(let iy=0;iy<ny;iy++)for(let iz=0;iz<nz;iz++){
   const offset=new THREE.Vector3(-size.x/2+cellSize.x*(ix+.5),-size.y/2+cellSize.y*(iy+.5),-size.z/2+cellSize.z*(iz+.5));
   const center=worldCenter.clone().add(offset);
   const d=center.distanceTo(point);
-  const cell={center,size:cellSize.clone(),d};
-  cells.push(cell);if(d<best){best=d;nearest=cell;}
+  if(d<impactRadius+Math.min(cellSize.x,cellSize.y,cellSize.z)*.28)broken.push({center,size:cellSize.clone(),d,ix,iy,iz});
+  else kept.push({center,size:cellSize.clone(),ix,iy,iz});
  }
+ // Tiny objects should still break; larger objects are replaced by only the surviving cells.
+ if(!broken.length){p.visible=false;return [p,worldCenter,size];}
  p.visible=false;
- for(const cell of cells){
-  if(cell===nearest)continue;
-  const cellGeometry=new THREE.BoxGeometry(cell.size.x*.985,cell.size.y*.985,cell.size.z*.985);
-  // Keep textured sign lettering clipped to each cell instead of repeating the entire sign on every shard.
+ for(const cell of kept){
+  const geo=new THREE.BoxGeometry(cell.size.x*.99,cell.size.y*.99,cell.size.z*.99);
   if(p.material.map){
-   const uv=cellGeometry.attributes.uv;
-   for(let face=4;face<=5;face++)for(let vtx=0;vtx<4;vtx++){
-    const idx=face*4+vtx, u=uv.getX(idx), v=uv.getY(idx);
-    uv.setXY(idx,(u+ix)/nx,(v+iy)/ny);
-   }
+   const uv=geo.attributes.uv;
+   for(let face=4;face<=5;face++)for(let vtx=0;vtx<4;vtx++){const idx=face*4+vtx;uv.setXY(idx,(uv.getX(idx)+cell.ix)/nx,(uv.getY(idx)+cell.iy)/ny);}
    uv.needsUpdate=true;
   }
-  const mesh=new THREE.Mesh(cellGeometry,p.material);
-  mesh.position.copy(cell.center);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.destructible=true;mesh.userData.hp=1;
-  scene.add(mesh);parts.push(mesh);mesh.userData.detachedCell=true;
+  const mesh=new THREE.Mesh(geo,p.material);mesh.position.copy(cell.center);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.destructible=true;mesh.userData.hp=1;
+  scene.add(mesh);parts.push(mesh);
  }
- return [p,nearest.center,nearest.size];
+ return [p,point.clone(),new THREE.Vector3(Math.max(cellSize.x,impactRadius),Math.max(cellSize.y,impactRadius),Math.max(cellSize.z,impactRadius))];
 }
 function hit(point,normal,screenX,targetObject){
  shots++;makeToolVisual(point,normal,screenX);
@@ -388,15 +367,15 @@ function hit(point,normal,screenX,targetObject){
  if(candidates.length){
   const [p,pos,boxSize]=damageLocalPatch(candidates[0].p,point);
   const viewDir=new THREE.Vector3();camera.getWorldDirection(viewDir);
-  const fragCount=weapon==='hammer'?10:18;
+  const fragCount=weapon==='hammer'?18:28;
   for(let j=0;j<fragCount;j++){
-   const geom=new THREE.BoxGeometry(Math.max(.08,boxSize.x*(.16+Math.random()*.2)),Math.max(.08,boxSize.y*(.16+Math.random()*.2)),Math.max(.08,boxSize.z*(.16+Math.random()*.2)));
+   const geom=new THREE.BoxGeometry(Math.max(.09,boxSize.x*(.12+Math.random()*.16)),Math.max(.09,boxSize.y*(.12+Math.random()*.16)),Math.max(.09,boxSize.z*(.12+Math.random()*.16)));
    const frag=new THREE.Mesh(geom,p.material.clone());
-   frag.position.copy(pos).add(new THREE.Vector3((Math.random()-.5)*Math.max(boxSize.x,.2),(Math.random()-.5)*Math.max(boxSize.y,.2),(Math.random()-.5)*Math.max(boxSize.z,.2)));
+   frag.position.copy(pos).add(new THREE.Vector3((Math.random()-.5)*.5,(Math.random()-.5)*.5,(Math.random()-.5)*.5));
    frag.castShadow=true;frag.receiveShadow=true;scene.add(frag);
    const outward=frag.position.clone().sub(point).normalize();
-   const velocity=outward.multiplyScalar((weapon==='hammer'?.28:.48)+Math.random()*.34).addScaledVector(viewDir,.2+Math.random()*.28);
-   velocity.y+=.18+Math.random()*.34;
+   const velocity=outward.multiplyScalar((weapon==='hammer'?.38:.68)+Math.random()*.52).addScaledVector(viewDir,.18+Math.random()*.18);
+   velocity.y+=.12+Math.random()*.26;
    effects.push({obj:frag,life:180,max:180,velocity,angular:new THREE.Vector3((Math.random()-.5)*.22,(Math.random()-.5)*.22,(Math.random()-.5)*.22),fragment:true,bounces:0});
   }
  }
@@ -421,7 +400,7 @@ document.querySelectorAll('.weapon').forEach(btn=>btn.addEventListener('click',e
 document.querySelector('#reset').addEventListener('click',()=>{shots=0;build();say('건물을 다시 만들었어')});
 function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.65))}
 window.addEventListener('resize',resize);
-function animate(){requestAnimationFrame(animate);controls.update();if(shakePower>0.002){const j=shakePower;camera.position.add(new THREE.Vector3((Math.random()-.5)*j,(Math.random()-.5)*j,(Math.random()-.5)*j));shakePower*=.86;}for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life--;if(e.toolSwing){const t=1-e.life/e.max;const swing=THREE.MathUtils.smoothstep(Math.min(1,t*1.28),0,1);if(e.batSwing){e.obj.position.copy(e.pivot);const arc=(swing-.5)*e.sweep;e.obj.quaternion.copy(e.baseQuat).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),arc));}else e.obj.position.lerpVectors(e.start,e.end,swing);}else if(e.fragment){e.velocity.y-=.012;e.obj.position.add(e.velocity);e.obj.rotation.x+=e.angular.x;e.obj.rotation.y+=e.angular.y;e.obj.rotation.z+=e.angular.z;if(e.obj.position.y<.12){e.obj.position.y=.12;if(e.velocity.y<0){e.velocity.y=-e.velocity.y*(e.bounces===0?.42:.18);e.velocity.x*=.72;e.velocity.z*=.72;e.bounces++;}if(Math.abs(e.velocity.y)<.025&&e.bounces>1){e.velocity.y=0;e.velocity.x*=.94;e.velocity.z*=.94;}}e.obj.material.transparent=true;e.obj.material.opacity=Math.min(1,e.life/30)}else{const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1)*2);e.obj.material.opacity=Math.max(0,1-t)}if(e.life<=0){scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose();effects.splice(i,1)}}renderer.render(scene,camera)}
+function animate(){requestAnimationFrame(animate);controls.update();if(shakePower>0.002){const j=shakePower;camera.position.add(new THREE.Vector3((Math.random()-.5)*j,(Math.random()-.5)*j,(Math.random()-.5)*j));shakePower*=.86;}for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life--;if(e.toolSwing){const t=1-e.life/e.max;const swing=THREE.MathUtils.smoothstep(Math.min(1,t*1.28),0,1);e.obj.position.lerpVectors(e.start,e.end,swing);}else if(e.fragment){e.velocity.y-=.012;e.obj.position.add(e.velocity);e.obj.rotation.x+=e.angular.x;e.obj.rotation.y+=e.angular.y;e.obj.rotation.z+=e.angular.z;if(e.obj.position.y<.12){e.obj.position.y=.12;if(e.velocity.y<0){e.velocity.y=-e.velocity.y*(e.bounces===0?.42:.18);e.velocity.x*=.72;e.velocity.z*=.72;e.bounces++;}if(Math.abs(e.velocity.y)<.025&&e.bounces>1){e.velocity.y=0;e.velocity.x*=.94;e.velocity.z*=.94;}}e.obj.material.transparent=true;e.obj.material.opacity=Math.min(1,e.life/30)}else{const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1)*2);e.obj.material.opacity=Math.max(0,1-t)}if(e.life<=0){scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose();effects.splice(i,1)}}renderer.render(scene,camera)}
 build();animate();
 </script>
 </body>
