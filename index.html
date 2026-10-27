@@ -4,123 +4,152 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="theme-color" content="#101827">
-<title>경덕중학교 뿌시기 · 모바일 테스트</title>
+<title>3D 학교 파괴 샌드박스</title>
 <style>
-:root{color-scheme:dark;--bg:#101827;--panel:#1b2638;--line:#33445d;--cyan:#61e7ff;--text:#eef5ff;--muted:#aab8cc}
+:root{color-scheme:dark;--bg:#101827;--panel:#111b2be8;--line:#33445d;--cyan:#61e7ff;--text:#eef5ff;--muted:#aab8cc}
 *{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--text);touch-action:none}
-#game{display:block;width:100%;height:100%;touch-action:none}
+#view{position:fixed;inset:0;width:100%;height:100%;display:block}
 .hud{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:12px;gap:8px}
-.top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.brand,.stats,.hint,.weapons,.reset{background:#111b2bdc;border:1px solid #33445dcc;backdrop-filter:blur(8px);border-radius:14px;box-shadow:0 8px 28px #0003}
-.brand{padding:10px 13px;max-width:65%}.brand strong{display:block;font-size:15px}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.brand,.stats,.hint,.weapons,.reset{background:var(--panel);border:1px solid #33445dcc;backdrop-filter:blur(8px);border-radius:14px;box-shadow:0 8px 28px #0003}
+.brand{padding:10px 13px;max-width:70%}.brand strong{display:block;font-size:15px}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
 .stats{padding:9px 11px;text-align:right;font-size:12px;line-height:1.65;white-space:nowrap}.stats b{color:var(--cyan)}
-.bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}.hint{padding:9px 11px;color:#c2d0e3;font-size:11px;max-width:47%;line-height:1.4}.controls{display:flex;flex-direction:column;gap:7px;align-items:flex-end;pointer-events:auto}
+.bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}.hint{padding:9px 11px;color:#c2d0e3;font-size:11px;max-width:46%;line-height:1.45}.controls{display:flex;flex-direction:column;gap:7px;align-items:flex-end;pointer-events:auto}
 .weapons{display:flex;padding:5px;gap:4px}.weapon,.reset{border:1px solid #41536d;background:#1b2a40;color:var(--text);border-radius:10px;padding:10px 11px;font-weight:700;font-size:12px;min-height:42px;touch-action:manipulation}
-.weapon.active{background:#17445b;border-color:var(--cyan);color:#9af0ff;box-shadow:inset 0 0 0 1px #61e7ff55}
-.reset{background:#243149}.toast{position:fixed;left:50%;top:19%;transform:translateX(-50%);padding:9px 13px;background:#07111eea;border:1px solid #4a607a;border-radius:999px;font-size:12px;opacity:0;transition:opacity .18s;pointer-events:none;white-space:nowrap}.toast.show{opacity:1}
+.weapon.active{background:#17445b;border-color:var(--cyan);color:#9af0ff;box-shadow:inset 0 0 0 1px #61e7ff55}.reset{background:#243149}
+.toast{position:fixed;left:50%;top:19%;transform:translateX(-50%);padding:9px 13px;background:#07111eea;border:1px solid #4a607a;border-radius:999px;font-size:12px;opacity:0;transition:opacity .18s;pointer-events:none;white-space:nowrap}.toast.show{opacity:1}
 @media(min-width:700px){.hud{padding:20px}.brand strong{font-size:18px}.brand small,.hint{font-size:13px}.weapon,.reset{font-size:14px;padding:12px 16px}}
 </style>
 </head>
 <body>
-<canvas id="game" aria-label="가상의 학교 건물 게임"></canvas>
+<canvas id="view" aria-label="회전하고 상호작용할 수 있는 가상 3D 학교 건물"></canvas>
 <div class="hud">
  <div class="top">
-  <div class="brand"><strong>🏫 경덕중학교 뿌시기</strong><small>가상의 한국 중학교 외관 · 모바일 웹 테스트</small></div>
-  <div class="stats">남은 블록 <b id="remaining">105</b><br>공격 횟수 <b id="shots">0</b></div>
+  <div class="brand"><strong>🏫 3D 학교 파괴 샌드박스</strong><small>Three.js · 가상의 학교 건물 모델</small></div>
+  <div class="stats">건물 상태 <b id="remaining">100%</b><br>작동 횟수 <b id="shots">0</b></div>
  </div>
  <div class="bottom">
-  <div class="hint">화면을 드래그해 회전<br>건물을 탭해 공격 · 두 손가락으로 확대/축소</div>
+  <div class="hint">드래그: 3D 회전<br>두 손가락/휠: 확대·축소<br>건물을 눌러 효과 적용</div>
   <div class="controls">
    <div class="weapons">
-    <button class="weapon active" data-weapon="laser">레이저</button>
-    <button class="weapon" data-weapon="missile">미사일</button>
-    <button class="weapon" data-weapon="shock">충격파</button>
+    <button class="weapon active" data-weapon="laser">광선</button>
+    <button class="weapon" data-weapon="impact">충격</button>
+    <button class="weapon" data-weapon="wave">파동</button>
    </div>
-   <button class="reset" id="reset">↻ 건물 재생성</button>
+   <button class="reset" id="reset">↻ 다시 만들기</button>
   </div>
  </div>
 </div>
-<div class="toast" id="toast">공격!</div>
-<script>
-(()=>{
-const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');
-const remainingEl=document.querySelector('#remaining'),shotsEl=document.querySelector('#shots'),toast=document.querySelector('#toast');
-let W=0,H=0,dpr=1,angle=-.55,zoom=1,weapon='laser',shots=0,blocks=[],effects=[],toastTimer;
-const COLS=7,ROWS=3,DEPTH=5;
-function resize(){dpr=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
-window.addEventListener('resize',resize);
-function reset(){blocks=[];for(let y=0;y<ROWS;y++)for(let z=0;z<DEPTH;z++)for(let x=0;x<COLS;x++)blocks.push({x:x-(COLS-1)/2,y,z:z-(DEPTH-1)/2,hp:1+((x+z+y)%4===0?1:0),alive:true,id:blocks.length});shots=0;effects=[];updateStats();draw();say('새 건물을 만들었어')}
-function updateStats(){remainingEl.textContent=blocks.filter(b=>b.alive).length;shotsEl.textContent=shots}
-function say(s){toast.textContent=s;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),950)}
-function project(b){let c=Math.cos(angle),s=Math.sin(angle),rx=b.x*c-b.z*s,rz=b.x*s+b.z*c;let unit=Math.min(W/(COLS+DEPTH+3),H/(ROWS+COLS*.45+DEPTH*.45+3))*zoom;let cx=W*.5,cy=H*.51;return {x:cx+(rx-rz)*unit*.68,y:cy+(rx+rz)*unit*.34-b.y*unit*.82,unit,depth:rx+rz+b.y*.5}}
-function poly(points,fill,stroke='#0d1827'){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke()}
-function cube(b){let p=project(b),u=p.unit*.34;let x=p.x,y=p.y;let top=[{x:x,y:y-u},{x:x+u,y:y-u*.5},{x:x,y:y},{x:x-u,y:y-u*.5}];let left=[{x:x-u,y:y-u*.5},{x:x,y:y},{x:x,y:y+u*1.15},{x:x-u,y:y+u*.65}];let right=[{x:x,y:y},{x:x+u,y:y-u*.5},{x:x+u,y:y+u*.65},{x:x,y:y+u*1.15}];let hue=195+(b.x+b.z)*2;let health=b.hp===2?'#7f94a9':'#607b95';poly(left,'#344a61');poly(right,health);poly(top,b.hp===2?'#91b1c9':'#8ba7bd');return {b,depth:p.depth,points:[...top,...left,...right],cx:x,cy:y+u*.25,rad:u*1.5}}
-function draw(){if(!W||!H)return;ctx.clearRect(0,0,W,H);let g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#14243a');g.addColorStop(1,'#263b4e');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
- // stars / subtle background
- ctx.fillStyle='#ffffff10';for(let i=0;i<28;i++){let x=(i*97+31)%W,y=(i*61+17)%(H*.65);ctx.fillRect(x,y,2,2)}
- let unit=Math.min(W/(COLS+DEPTH+3),H/(ROWS+COLS*.45+DEPTH*.45+3))*zoom;
- // ground plane
- let ground=project({x:0,y:-.05,z:0}),r=unit*3.8;ctx.beginPath();ctx.ellipse(W*.5,H*.62,r*1.35,r*.68,0,0,Math.PI*2);ctx.fillStyle='#49627355';ctx.fill();ctx.strokeStyle='#7891a566';ctx.stroke();
- // 건물 전체를 하나의 학교 외관으로 렌더링 (개별 큐브 타일 대신)
- const alive=blocks.filter(b=>b.alive).length, total=blocks.length, damageRatio=alive/total;
- const bw=Math.min(W*.72,unit*COLS*1.22), bh=Math.min(H*.38,unit*ROWS*1.45);
- const x=W*.5-bw*.52, y=H*.30, side=bw*.17, roofH=bh*.12;
- const front=[{x:x,y:y+roofH},{x:x+bw,y:y+roofH},{x:x+bw,y:y+bh},{x:x,y:y+bh}];
- // 측면과 지붕
- poly([{x:x+bw,y:y+roofH},{x:x+bw+side,y:y},{x:x+bw+side,y:y+bh-roofH*.2},{x:x+bw,y:y+bh}], '#718697');
- poly([{x:x,y:y+roofH},{x:x+side,y:y},{x:x+bw+side,y:y},{x:x+bw,y:y+roofH}], '#e8eef2');
- // 정면 외벽
- poly(front, '#d9e2e8');
- // 층별 띠와 창문
- const floors=3, windows=7, fw=bw/windows, fh=(bh-roofH)/(floors+0.6);
- for(let row=0;row<floors;row++){
-   const wy=y+roofH+row*fh+fh*.2;
-   for(let col=0;col<windows;col++){
-     const wx=x+col*fw+fw*.23, ww=fw*.52, wh=fh*.48;
-     const idx=row*windows+col;
-     const destroyed=idx>=Math.floor(damageRatio*floors*windows);
-     if(!destroyed){
-       ctx.fillStyle='#4d7e9b';ctx.fillRect(wx,wy,ww,wh);
-       ctx.strokeStyle='#f5fafc';ctx.lineWidth=Math.max(1,unit*.025);ctx.strokeRect(wx,wy,ww,wh);
-       ctx.beginPath();ctx.moveTo(wx+ww/2,wy);ctx.lineTo(wx+ww/2,wy+wh);ctx.stroke();
-     }else{
-       ctx.fillStyle='#263746';ctx.fillRect(wx,wy,ww,wh);
-       ctx.strokeStyle='#526575';ctx.strokeRect(wx,wy,ww,wh);
-     }
-   }
-   ctx.fillStyle='#b8c8d2';ctx.fillRect(x,y+roofH+(row+1)*fh,bw,Math.max(1,unit*.035));
- }
- // 중앙 출입구와 학교 표지판
- const doorW=bw*.105,doorH=bh*.24,doorX=x+bw*.45,doorY=y+bh-doorH;
- ctx.fillStyle='#314b60';ctx.fillRect(doorX,doorY,doorW,doorH);
- ctx.fillStyle='#a8c7d8';ctx.fillRect(doorX+doorW*.12,doorY+doorH*.12,doorW*.76,doorH*.36);
- ctx.fillStyle='#17344b';ctx.fillRect(x+bw*.34,y+roofH*.25,bw*.32,Math.max(14,roofH*.48));
- ctx.fillStyle='#f5fbff';ctx.font='bold '+Math.max(10,Math.min(16,bw*.025))+'px sans-serif';
- ctx.textAlign='center';ctx.fillText('경덕중학교',x+bw*.50,y+roofH*.60);
- // 파괴 효과는 건물 정면에만 표시되며, 외형은 학교 건물로 유지
- if(damageRatio<.98){
-   for(let i=0;i<Math.floor((1-damageRatio)*12);i++){
-     const dx=x+bw*(.12+((i*37)%75)/100),dy=y+roofH+bh*(.12+((i*23)%65)/100);
-     ctx.fillStyle='#273746';ctx.fillRect(dx,dy,Math.max(3,unit*.12),Math.max(3,unit*.1));
-   }
- }
- for(const e of effects){let t=1-e.life/e.max;if(e.type==='beam'){ctx.strokeStyle='#7cf3ff';ctx.lineWidth=3*(1-t)+.5;ctx.beginPath();ctx.moveTo(e.x1,e.y1);ctx.lineTo(e.x2,e.y2);ctx.stroke();ctx.strokeStyle='#e3ffff';ctx.lineWidth=1;ctx.stroke()}else{ctx.beginPath();ctx.arc(e.x,e.y,e.r*t,0,Math.PI*2);ctx.strokeStyle=e.color;ctx.lineWidth=4*(1-t)+1;ctx.stroke();ctx.fillStyle=e.color+'22';ctx.fill()}}
- updateStats();
+<div class="toast" id="toast">효과 적용</div>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const canvas=document.querySelector('#view'), remainingEl=document.querySelector('#remaining'),shotsEl=document.querySelector('#shots'),toast=document.querySelector('#toast');
+const scene=new THREE.Scene();scene.background=new THREE.Color('#142238');scene.fog=new THREE.Fog('#142238',28,65);
+const camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,.1,120);camera.position.set(13,10,17);
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,3.3,0);controls.enableDamping=true;controls.dampingFactor=.06;controls.minDistance=7;controls.maxDistance=34;controls.maxPolarAngle=Math.PI*.48;
+scene.add(new THREE.HemisphereLight(0xc9e6ff,0x354254,2.0));
+const sun=new THREE.DirectionalLight(0xfff1d6,3.2);sun.position.set(-8,16,10);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);scene.add(sun);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:'#26384a',roughness:.95}));ground.rotation.x=-Math.PI/2;ground.position.y=-.08;ground.receiveShadow=true;scene.add(ground);
+const grid=new THREE.GridHelper(70,70,'#486176','#31465a');grid.position.y=-.06;scene.add(grid);
+let building=new THREE.Group(),parts=[],effects=[],weapon='laser',shots=0,toastTimer;
+const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
+function mat(color,roughness=.78){return new THREE.MeshStandardMaterial({color,roughness,metalness:.02})}
+const wallMat=mat('#d5dce0'),trimMat=mat('#eef1ed'),roofMat=mat('#4d6275'),glassMat=new THREE.MeshStandardMaterial({color:'#4d829d',roughness:.25,metalness:.15}),darkGlass=mat('#233847'),doorMat=mat('#6e8b9c'),concreteMat=mat('#9ba9b0');
+function addPart(geometry,material,pos,parent=building,destructible=true){const mesh=new THREE.Mesh(geometry,material);mesh.position.set(...pos);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.destructible=destructible;mesh.userData.hp=1;parent.add(mesh);if(destructible)parts.push(mesh);return mesh}
+function box(w,h,d,material,pos,parent=building,destructible=true){return addPart(new THREE.BoxGeometry(w,h,d),material,pos,parent,destructible)}
+function makeWindow(x,y,z,w=.78,h=.72,front=true){
+ const depth=.13, faceZ=front?z-.055:z+.055;
+ box(w+.12,h+.12,depth,trimMat,[x,y,z],building,true);
+ box(w,h,.08,glassMat,[x,y,faceZ],building,true);
+ box(.045,h,.035,trimMat,[x,y,faceZ-.055],building,true);
+ box(w,.045,.035,trimMat,[x,y,faceZ-.055],building,true);
 }
-function nearest(px,py){let best=null,bd=Infinity;for(const b of blocks){if(!b.alive)continue;let p=project(b),u=p.unit*.34,dx=px-p.x,dy=py-(p.y+u*.2),d=dx*dx+dy*dy*.7;if(d<bd){bd=d;best=b}}return bd<Math.pow(Math.min(W,H)*.28,2)?best:null}
-function attack(px,py){let b=nearest(px,py);if(!b){say('건물 블록을 탭해 줘');return}shots++;let target=project(b);if(weapon==='laser'){damage(b,2);effects.push({type:'beam',x1:W*.5,y1:H*.77,x2:target.x,y2:target.y,life:12,max:12});say('레이저 발사!')}else if(weapon==='missile'){area(b,1,3);effects.push({type:'burst',x:target.x,y:target.y,r:Math.min(W,H)*.18,life:20,max:20,color:'#ff9c52'});say('미사일 폭발!')}else{area(b,2,2);effects.push({type:'burst',x:target.x,y:target.y,r:Math.min(W,H)*.32,life:26,max:26,color:'#b18aff'});say('충격파 발생!')}updateStats();draw()}
-function damage(b,n){b.hp-=n;if(b.hp<=0)b.alive=false}
-function area(center,r,n){for(const b of blocks){if(!b.alive)continue;let d=Math.abs(b.x-center.x)+Math.abs(b.z-center.z)+Math.abs(b.y-center.y);if(d<=r)damage(b,n)}}
-document.querySelectorAll('.weapon').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();weapon=btn.dataset.weapon;document.querySelectorAll('.weapon').forEach(x=>x.classList.toggle('active',x===btn));say(({laser:'레이저 선택',missile:'미사일 선택',shock:'충격파 선택'})[weapon])}));
-document.querySelector('#reset').addEventListener('click',reset);
-let pointers=new Map(),lastX=0,lastY=0,lastPinch=0,moved=false;
-canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY});lastX=e.clientX;lastY=e.clientY;moved=false;if(pointers.size===2){let a=[...pointers.values()];lastPinch=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)}});
-canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;let old=pointers.get(e.pointerId);pointers.set(e.pointerId,{...old,x:e.clientX,y:e.clientY});if(pointers.size>=2){let a=[...pointers.values()],dist=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);if(lastPinch)zoom=Math.max(.65,Math.min(1.8,zoom*dist/lastPinch));lastPinch=dist;moved=true;draw()}else{let dx=e.clientX-lastX,dy=e.clientY-lastY;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;if(moved){angle+=dx*.012;zoom=Math.max(.65,Math.min(1.8,zoom-dy*.001));draw()}}lastX=e.clientX;lastY=e.clientY});
-function pointerEnd(e){let p=pointers.get(e.pointerId);if(p&&pointers.size===1&&!moved){attack(p.x,p.y)}pointers.delete(e.pointerId);if(pointers.size<2)lastPinch=0}
-canvas.addEventListener('pointerup',pointerEnd);canvas.addEventListener('pointercancel',e=>pointers.delete(e.pointerId));
-canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.65,Math.min(1.8,zoom-e.deltaY*.001));draw()},{passive:false});
-function animate(){let changed=false;for(let i=effects.length-1;i>=0;i--){effects[i].life--;if(effects[i].life<=0)effects.splice(i,1);changed=true}if(changed)draw();requestAnimationFrame(animate)}
-reset();resize();animate();
-})();
+function build(){
+ scene.remove(building);building=new THREE.Group();parts=[];effects.forEach(e=>scene.remove(e.obj));effects=[];
+ // Main 3-storey classroom wing, plus a perpendicular lower wing for a recognisable school silhouette.
+ box(12,6.4,4.2,wallMat,[0,3.25,0]);
+ box(7.2,4.4,3.8,wallMat,[-2.2,2.25,4.0]);
+ // roof slab and overhang
+ box(12.5,.28,4.65,roofMat,[0,6.55,0]);
+ box(7.6,.24,4.2,roofMat,[-2.2,4.52,4.0]);
+ // floor strips and front windows in three rows
+ for(let floor=0;floor<3;floor++){
+  const yy=1.35+floor*1.85;
+  for(let col=0;col<7;col++){const xx=-4.9+col*1.62;makeWindow(xx,yy,-2.12,.88,.88,true)}
+  box(12,.09,.08,concreteMat,[0,.48+floor*1.85,-2.13]);
+ }
+ // side windows, repeated on right wall
+ for(let floor=0;floor<3;floor++)for(let col=0;col<2;col++){
+  const yy=1.35+floor*1.85,zz=-.9+col*1.6;
+  box(.12,.98,.86,trimMat,[6.04,yy,zz]);
+  box(.07,.82,.7,glassMat,[6.12,yy,zz]);
+ }
+ // wing windows
+ for(let floor=0;floor<2;floor++)for(let col=0;col<4;col++){
+  const xx=-4.9+col*1.55,yy=1.35+floor*1.7;
+  box(.92,.84,.14,trimMat,[xx,yy,2.08]);
+  box(.78,.7,.08,glassMat,[xx,yy,2.0]);
+ }
+ // entrance canopy, steps, double doors
+ box(2.45,.22,1.15,roofMat,[1.4,2.85,-2.72]);
+ box(1.85,2.15,.18,doorMat,[1.4,1.15,-2.17]);
+ box(.07,2.05,.06,trimMat,[1.4,1.15,-2.29]);
+ box(.45,.85,.05,glassMat,[.95,1.45,-2.29]);box(.45,.85,.05,glassMat,[1.85,1.45,-2.29]);
+ box(3.4,.2,1.3,concreteMat,[1.4,.2,-2.8],building,false);
+ // sign board, text via canvas texture
+ const signCanvas=document.createElement('canvas');signCanvas.width=512;signCanvas.height=128;const c=signCanvas.getContext('2d');
+ c.fillStyle='#18354b';c.fillRect(0,0,512,128);c.strokeStyle='#e7f3fa';c.lineWidth=7;c.strokeRect(4,4,504,120);
+ c.fillStyle='#ffffff';c.font='bold 54px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('가상 중학교',256,64);
+ const signTex=new THREE.CanvasTexture(signCanvas);const sign=box(3.3,.78,.12,new THREE.MeshStandardMaterial({map:signTex}),[0,5.95,-2.2]);
+ // entrance stairs and side trim
+ box(4,.18,1.1,concreteMat,[1.4,.1,-3.25],building,false);
+ // rooftop equipment
+ box(1.1,.55,.8,concreteMat,[-4.6,6.95,.3]);
+ box(.6,.35,.55,concreteMat,[4.7,6.88,.4]);
+ scene.add(building);building.position.y=0;
+ // make each part destructible and leave non-building scenery intact
+ updateStatus();controls.target.set(0,3.2,.3);controls.update();
+}
+function updateStatus(){const intact=parts.filter(p=>p.visible).length;remainingEl.textContent=Math.round(intact/Math.max(parts.length,1)*100)+'%';shotsEl.textContent=shots}
+function say(s){toast.textContent=s;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1000)}
+function makeRing(point,color,scale){const obj=new THREE.Mesh(new THREE.TorusGeometry(.3,.035,8,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.95}));obj.position.copy(point);obj.rotation.x=Math.PI/2;scene.add(obj);effects.push({obj,life:42,max:42,scale});}
+function hit(point){
+ shots++;const color=weapon==='laser'?0x69efff:weapon==='impact'?0xffb56b:0xb69aff;
+ makeRing(point,color,weapon==='wave'?5:weapon==='impact'?2.2:1.1);
+ const radius=weapon==='laser'?1.5:weapon==='impact'?2.8:5.2;
+ const candidates=parts.filter(p=>p.visible).map(p=>({p,world:p.getWorldPosition(new THREE.Vector3()),dist:p.getWorldPosition(new THREE.Vector3()).distanceTo(point)})).filter(o=>o.dist<radius);
+ candidates.sort((a,b)=>a.dist-b.dist);
+ const amount=weapon==='laser'?Math.min(2,candidates.length):weapon==='impact'?Math.min(7,candidates.length):Math.min(16,candidates.length);
+ for(let i=0;i<amount;i++){
+  const p=candidates[i].p;p.visible=false;
+  // small fragments fly away from the impact point
+  const pos=p.getWorldPosition(new THREE.Vector3());const geom=new THREE.BoxGeometry(.22,.22,.22);
+  const frag=new THREE.Mesh(geom,p.material);frag.position.copy(pos);frag.castShadow=true;scene.add(frag);
+  const dir=pos.clone().sub(point).normalize();dir.y=Math.abs(dir.y)+.8;
+  effects.push({obj:frag,life:55,max:55,velocity:dir.multiplyScalar(.045+Math.random()*.055),fragment:true});
+ }
+ updateStatus();say(weapon==='laser'?'광선 효과 적용':weapon==='impact'?'충격 효과 적용':'파동 효과 적용');
+}
+const pickables=()=>parts.filter(p=>p.visible);
+renderer.domElement.addEventListener('pointerup',e=>{
+ if(renderer.domElement.__dragged){renderer.domElement.__dragged=false;return}
+ const rect=renderer.domElement.getBoundingClientRect();pointer.x=(e.clientX-rect.left)/rect.width*2-1;pointer.y=-(e.clientY-rect.top)/rect.height*2+1;
+ raycaster.setFromCamera(pointer,camera);const hits=raycaster.intersectObjects(pickables(),false);
+ if(hits.length)hit(hits[0].point);
+});
+let down=null;renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};renderer.domElement.__dragged=false});
+renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>7)renderer.domElement.__dragged=true});
+renderer.domElement.addEventListener('pointercancel',()=>{down=null});
+document.querySelectorAll('.weapon').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();weapon=btn.dataset.weapon;document.querySelectorAll('.weapon').forEach(x=>x.classList.toggle('active',x===btn));say(({laser:'광선 선택',impact:'충격 선택',wave:'파동 선택'})[weapon])}));
+document.querySelector('#reset').addEventListener('click',()=>{shots=0;build();say('건물을 다시 만들었어')});
+function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2))}
+window.addEventListener('resize',resize);
+function animate(){requestAnimationFrame(animate);controls.update();for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life--;if(e.fragment){e.obj.position.add(e.velocity);e.velocity.y-=.003;e.obj.rotation.x+=.04;e.obj.rotation.z+=.03;e.obj.material.transparent=true;e.obj.material.opacity=Math.max(0,e.life/e.max)}else{const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1)*2);e.obj.material.opacity=Math.max(0,1-t)}if(e.life<=0){scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose();effects.splice(i,1)}}renderer.render(scene,camera)}
+build();animate();
 </script>
 </body>
 </html>
