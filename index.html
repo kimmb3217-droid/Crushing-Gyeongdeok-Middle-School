@@ -28,12 +28,11 @@
   <div class="stats">건물 상태 <b id="remaining">100%</b><br>작동 횟수 <b id="shots">0</b></div>
  </div>
  <div class="bottom">
-  <div class="hint">드래그: 3D 회전<br>두 손가락/휠: 확대·축소<br>건물을 눌러 효과 적용</div>
+  <div class="hint">드래그: 3D 회전<br>두 손가락/휠: 확대·축소<br>도구 선택 후 건물을 눌러 타격</div>
   <div class="controls">
    <div class="weapons">
-    <button class="weapon active" data-weapon="laser">광선</button>
-    <button class="weapon" data-weapon="impact">충격</button>
-    <button class="weapon" data-weapon="wave">파동</button>
+    <button class="weapon active" data-weapon="hammer">🔨 망치</button>
+    <button class="weapon" data-weapon="bat">⚾ 야구 빠따</button>
    </div>
    <button class="reset" id="reset">↻ 다시 만들기</button>
   </div>
@@ -55,7 +54,7 @@ scene.add(new THREE.HemisphereLight(0xc9e6ff,0x354254,2.0));
 const sun=new THREE.DirectionalLight(0xfff1d6,3.1);sun.position.set(-12,22,15);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-28;sun.shadow.camera.right=28;sun.shadow.camera.top=28;sun.shadow.camera.bottom=-28;sun.shadow.bias=-0.00035;scene.add(sun);
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:'#26384a',roughness:.95}));ground.rotation.x=-Math.PI/2;ground.position.y=-.08;ground.receiveShadow=true;scene.add(ground);
 const grid=new THREE.GridHelper(70,70,'#486176','#31465a');grid.position.y=-.06;scene.add(grid);
-let building=new THREE.Group(),parts=[],effects=[],weapon='laser',shots=0,toastTimer;
+let building=new THREE.Group(),parts=[],effects=[],weapon='hammer',shots=0,toastTimer;
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 const materialCache=new Map();
 function mat(color,roughness=.78){const key=color+'|'+roughness;if(materialCache.has(key))return materialCache.get(key);const m=new THREE.MeshStandardMaterial({color,roughness,metalness:.02});materialCache.set(key,m);return m}
@@ -290,23 +289,20 @@ function build(){
 }
 function updateStatus(){const intact=parts.filter(p=>p.visible).length;remainingEl.textContent=Math.round(intact/Math.max(parts.length,1)*100)+'%';shotsEl.textContent=shots}
 function say(s){toast.textContent=s;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),1000)}
-function makeRing(point,color,scale){const obj=new THREE.Mesh(new THREE.TorusGeometry(.3,.035,8,48),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.95}));obj.position.copy(point);obj.rotation.x=Math.PI/2;scene.add(obj);effects.push({obj,life:42,max:42,scale});}
 function hit(point){
- shots++;const color=weapon==='laser'?0x69efff:weapon==='impact'?0xffb56b:0xb69aff;
- makeRing(point,color,weapon==='wave'?5:weapon==='impact'?2.2:1.1);
- const radius=weapon==='laser'?1.5:weapon==='impact'?2.8:5.2;
- const candidates=parts.filter(p=>p.visible).map(p=>({p,world:p.getWorldPosition(new THREE.Vector3()),dist:p.getWorldPosition(new THREE.Vector3()).distanceTo(point)})).filter(o=>o.dist<radius);
+ shots++;
+ const radius=weapon==='hammer'?1.35:2.45;
+ const candidates=parts.filter(p=>p.visible).map(p=>({p,world:p.getWorldPosition(new THREE.Vector3())})).map(o=>({...o,dist:o.world.distanceTo(point)})).filter(o=>o.dist<radius);
  candidates.sort((a,b)=>a.dist-b.dist);
- const amount=weapon==='laser'?Math.min(2,candidates.length):weapon==='impact'?Math.min(7,candidates.length):Math.min(16,candidates.length);
+ const amount=weapon==='hammer'?Math.min(3,candidates.length):Math.min(8,candidates.length);
  for(let i=0;i<amount;i++){
   const p=candidates[i].p;p.visible=false;
-  // small fragments fly away from the impact point
-  const pos=p.getWorldPosition(new THREE.Vector3());const geom=new THREE.BoxGeometry(.22,.22,.22);
+  const pos=p.getWorldPosition(new THREE.Vector3()),geom=new THREE.BoxGeometry(.22,.22,.22);
   const frag=new THREE.Mesh(geom,p.material.clone());frag.position.copy(pos);frag.castShadow=true;scene.add(frag);
   const dir=pos.clone().sub(point).normalize();dir.y=Math.abs(dir.y)+.8;
   effects.push({obj:frag,life:55,max:55,velocity:dir.multiplyScalar(.045+Math.random()*.055),fragment:true});
  }
- updateStatus();say(weapon==='laser'?'광선 효과 적용':weapon==='impact'?'충격 효과 적용':'파동 효과 적용');
+ updateStatus();say(weapon==='hammer'?'망치 타격!':'야구 빠따 타격!');
 }
 const pickables=()=>parts.filter(p=>p.visible);
 renderer.domElement.addEventListener('pointerup',e=>{
@@ -318,7 +314,7 @@ renderer.domElement.addEventListener('pointerup',e=>{
 let down=null;renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};renderer.domElement.__dragged=false});
 renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>7)renderer.domElement.__dragged=true});
 renderer.domElement.addEventListener('pointercancel',()=>{down=null});renderer.domElement.addEventListener('pointerup',()=>{down=null});
-document.querySelectorAll('.weapon').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();weapon=btn.dataset.weapon;document.querySelectorAll('.weapon').forEach(x=>x.classList.toggle('active',x===btn));say(({laser:'광선 선택',impact:'충격 선택',wave:'파동 선택'})[weapon])}));
+document.querySelectorAll('.weapon').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();weapon=btn.dataset.weapon;document.querySelectorAll('.weapon').forEach(x=>x.classList.toggle('active',x===btn));say(({hammer:'망치 선택',bat:'야구 빠따 선택'})[weapon])}));
 document.querySelector('#reset').addEventListener('click',()=>{shots=0;build();say('건물을 다시 만들었어')});
 function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.65))}
 window.addEventListener('resize',resize);
