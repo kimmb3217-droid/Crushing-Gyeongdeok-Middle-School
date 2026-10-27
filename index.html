@@ -133,6 +133,40 @@ function build(){
   box(.7,.49,.06,mat('#6b9bb0'),[x+.65,1.8,7.23]);
  }
  box(9.8,.2,3.3,mat('#a43c3b'),[-1.1,2.78,8.9]);
+ // Neighboring Andong Jungang High School is represented as a connected campus block.
+ // It is a visual background structure, so the two school buildings read as one joined complex.
+ const highWall=mat('#c9c9bf'), highTrim=mat('#e5e2d8'), highGlass=mat('#6e9eb2');
+ box(7.8,5.3,3.7,highWall,[5.0,2.55,10.5],building,false);
+ box(7.95,.22,3.85,mat('#a33e3e'),[5.0,5.25,10.5],building,false);
+ for(let floor=0;floor<3;floor++)for(let col=0;col<6;col++){
+  const x=1.65+col*1.34, y=1.05+floor*1.55;
+  box(.92,.78,.1,highTrim,[x,y,8.58],building,false);
+  box(.78,.62,.06,highGlass,[x,y,8.51],building,false);
+ }
+ // Covered connecting passage between the two school blocks.
+ box(2.5,.22,1.2,mat('#d7d9d3'),[3.0,2.65,7.4],building,false);
+ for(let x=2.0;x<=4.0;x+=.65)box(.09,2.3,.09,mat('#7b8c91'),[x,1.45,7.4],building,false);
+ // Neighborhood street grid along the eastern edge and the lower approach road.
+ const roadMat=mat('#555d63'), roadLine=mat('#d7d4c8'), sidewalk=mat('#a9a9a0');
+ box(7,.08,32,roadMat,[16,-.08,1],building,false);
+ box(32,.08,5,roadMat,[0,-.08,-14],building,false);
+ box(7.4,.12,32,sidewalk,[11.9,-.03,1],building,false);
+ box(32,.12,.7,sidewalk,[0,-.02,-11.1],building,false);
+ for(let z=-13;z<16;z+=3.5)box(.09,.025,1.6,roadLine,[16,.0,z],building,false);
+ for(let x=-14;x<15;x+=3.5)box(1.6,.025,.09,roadLine,[x,.0,-14],building,false);
+ // Small houses and shops on the road side, matching the compact residential blocks in the satellite view.
+ for(let i=0;i<7;i++){
+  const x=19.3+(i%3)*2.8, z=-8+Math.floor(i/3)*6.4;
+  const w=2.15+(i%2)*.35, d=2.5;
+  box(w,1.9,d,mat(i%2?'#d9d1c1':'#b7b4ad'),[x,.95,z],building,false);
+  box(w+.08,.18,d+.12,mat(i%3?'#3c6075':'#657078'),[x,1.95,z],building,false);
+  box(.8,.72,.08,mat('#64899b'),[x,1.05,z-d/2-.05],building,false);
+  box(.65,.65,.08,mat('#6d8da0'),[x-w/2-.05,1.0,z],building,false);
+ }
+ // A simple covered sports hall beside the field.
+ box(5.6,2.8,4.8,mat('#e0e2dc'),[-10,1.4,8.5],building,false);
+ box(5.75,.22,4.95,mat('#327aa0'),[-10,2.85,8.5],building,false);
+ for(let x=-12;x<=-8;x+=1.3)box(.8,1.3,.08,mat('#7399a7'),[x,1.55,6.05],building,false);
  // Yard, driveway, parking area and running track/court beside campus.
  box(17,.12,9,asphalt,[-3,-.12,-5.8],building,false);
  box(8,.08,11,fieldMat,[-10,-.12,1.6],building,false);
