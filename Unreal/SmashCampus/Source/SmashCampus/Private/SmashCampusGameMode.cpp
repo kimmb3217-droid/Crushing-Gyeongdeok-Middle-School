@@ -107,24 +107,55 @@ void ASmashCampusGameMode::AddBox(const FVector& Location, const FVector& Scale,
 
 void ASmashCampusGameMode::BuildBuilding(const FVector& Center, const FVector& Size, int32 Floors, FLinearColor FacadeColor)
 {
+    // Build a campus-style facade from separate walls, floor bands, columns, and glazing
+    // instead of one solid block. Each structural piece can detach independently.
     const float FloorHeight = Size.Z / FMath::Max(1, Floors);
-    AddBox(Center, Size, FacadeColor, true);
-    AddBox(Center + FVector(0, 0, Size.Z * 0.5f + 35.0f), FVector(Size.X + 90.0f, Size.Y + 90.0f, 70.0f), FLinearColor(0.12f, 0.14f, 0.16f), true);
+    const float FrontY = Center.Y - Size.Y * 0.5f;
+    const float BackY = Center.Y + Size.Y * 0.5f;
+    const float LeftX = Center.X - Size.X * 0.5f;
+    const float RightX = Center.X + Size.X * 0.5f;
+    const float WallThickness = 34.0f;
+    const float WindowHeight = FloorHeight * 0.43f;
+    const int32 WindowCols = FMath::Max(3, FMath::FloorToInt(Size.X / 210.0f));
+    const float WindowWidth = Size.X / (WindowCols + 1.0f) * 0.56f;
 
-    const int32 WindowRows = FMath::Max(1, Floors);
-    const int32 WindowCols = FMath::Max(3, FMath::FloorToInt(Size.X / 190.0f));
-    for (int32 Row = 0; Row < WindowRows; ++Row)
+    for (int32 Floor = 0; Floor < Floors; ++Floor)
     {
-        const float Z = Center.Z - Size.Z * 0.5f + FloorHeight * (Row + 0.55f);
+        const float BaseZ = Center.Z - Size.Z * 0.5f + Floor * FloorHeight;
+        const float MidZ = BaseZ + FloorHeight * 0.5f;
+        // Side and rear walls give the building real depth while leaving a detailed front.
+        AddBox(FVector(LeftX + WallThickness * 0.5f, Center.Y, MidZ),
+            FVector(WallThickness, Size.Y, FloorHeight), FacadeColor, true);
+        AddBox(FVector(RightX - WallThickness * 0.5f, Center.Y, MidZ),
+            FVector(WallThickness, Size.Y, FloorHeight), FacadeColor, true);
+        AddBox(FVector(Center.X, BackY - WallThickness * 0.5f, MidZ),
+            FVector(Size.X, WallThickness, FloorHeight), FacadeColor, true);
+        AddBox(FVector(Center.X, Center.Y, BaseZ + 12.0f),
+            FVector(Size.X, Size.Y, 24.0f), FLinearColor(0.47f, 0.44f, 0.39f), true);
+
+        // Repeated window bays separated by solid facade piers.
+        const float BayStep = Size.X / WindowCols;
         for (int32 Col = 0; Col < WindowCols; ++Col)
         {
-            const float X = Center.X - Size.X * 0.5f + Size.X * (Col + 0.5f) / WindowCols;
-            AddBox(FVector(X, Center.Y - Size.Y * 0.5f - 7.0f, Z),
-                FVector(82.0f, 18.0f, 95.0f), FLinearColor(0.08f, 0.24f, 0.31f), true);
+            const float X = LeftX + BayStep * (Col + 0.5f);
+            AddBox(FVector(X, FrontY + WallThickness * 0.5f, MidZ),
+                FVector(BayStep - WindowWidth - 22.0f, WallThickness, FloorHeight - 20.0f), FacadeColor, true);
+            AddBox(FVector(X, FrontY - 8.0f, BaseZ + FloorHeight * 0.58f),
+                FVector(WindowWidth, 18.0f, WindowHeight), FLinearColor(0.08f, 0.25f, 0.34f), true);
+            AddBox(FVector(X, FrontY - 20.0f, BaseZ + FloorHeight * 0.58f + WindowHeight * 0.5f),
+                FVector(WindowWidth + 24.0f, 26.0f, 16.0f), FLinearColor(0.84f, 0.80f, 0.69f), true);
         }
+        AddBox(FVector(Center.X, FrontY - 18.0f, BaseZ + FloorHeight - 18.0f),
+            FVector(Size.X + 24.0f, 48.0f, 36.0f), FLinearColor(0.82f, 0.77f, 0.65f), true);
     }
-    AddBox(Center + FVector(0, -Size.Y * 0.5f - 24.0f, -Size.Z * 0.5f + 105.0f),
-        FVector(180.0f, 45.0f, 210.0f), FLinearColor(0.16f, 0.20f, 0.22f), true);
+
+    // Flat roof parapet and a recessed, dark entrance with a projecting canopy.
+    AddBox(Center + FVector(0, 0, Size.Z * 0.5f + 28.0f),
+        FVector(Size.X + 70.0f, Size.Y + 70.0f, 56.0f), FLinearColor(0.14f, 0.16f, 0.17f), true);
+    AddBox(FVector(Center.X, FrontY - 22.0f, Center.Z - Size.Z * 0.5f + 105.0f),
+        FVector(150.0f, 22.0f, 210.0f), FLinearColor(0.10f, 0.16f, 0.19f), true);
+    AddBox(FVector(Center.X, FrontY - 100.0f, Center.Z - Size.Z * 0.5f + 220.0f),
+        FVector(340.0f, 210.0f, 24.0f), FLinearColor(0.78f, 0.74f, 0.64f), true);
 }
 
 void ASmashCampusGameMode::AddTree(const FVector& Location, float Scale)
