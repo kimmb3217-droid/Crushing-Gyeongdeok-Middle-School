@@ -49,18 +49,20 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const canvas=document.querySelector('#view'), remainingEl=document.querySelector('#remaining'),shotsEl=document.querySelector('#shots'),toast=document.querySelector('#toast');
 const scene=new THREE.Scene();scene.background=new THREE.Color('#142238');scene.fog=new THREE.Fog('#142238',28,65);
 const camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,.1,120);camera.position.set(19,15,22);
-const renderer=new THREE.WebGLRenderer({canvas,antialias:false,alpha:false,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=false;
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.65));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;
 const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(-2,2.4,0);controls.enableDamping=true;controls.dampingFactor=.06;controls.minDistance=7;controls.maxDistance=34;controls.maxPolarAngle=Math.PI*.48;
 scene.add(new THREE.HemisphereLight(0xc9e6ff,0x354254,2.0));
-const sun=new THREE.DirectionalLight(0xfff1d6,2.2);sun.position.set(-8,16,10);sun.castShadow=false;scene.add(sun);
+const sun=new THREE.DirectionalLight(0xfff1d6,3.1);sun.position.set(-12,22,15);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-28;sun.shadow.camera.right=28;sun.shadow.camera.top=28;sun.shadow.camera.bottom=-28;sun.shadow.bias=-0.00035;scene.add(sun);
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:'#26384a',roughness:.95}));ground.rotation.x=-Math.PI/2;ground.position.y=-.08;ground.receiveShadow=true;scene.add(ground);
 const grid=new THREE.GridHelper(70,70,'#486176','#31465a');grid.position.y=-.06;scene.add(grid);
 let building=new THREE.Group(),parts=[],effects=[],weapon='laser',shots=0,toastTimer;
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
-const materialCache=new Map();\nfunction mat(color,roughness=.78){const key=color+'|'+roughness;if(materialCache.has(key))return materialCache.get(key);const m=new THREE.MeshStandardMaterial({color,roughness,metalness:.02});materialCache.set(key,m);return m}
+const materialCache=new Map();
+function mat(color,roughness=.78){const key=color+'|'+roughness;if(materialCache.has(key))return materialCache.get(key);const m=new THREE.MeshStandardMaterial({color,roughness,metalness:.02});materialCache.set(key,m);return m}
 const wallMat=mat('#d5dce0'),trimMat=mat('#eef1ed'),roofMat=mat('#4d6275'),glassMat=new THREE.MeshStandardMaterial({color:'#4d829d',roughness:.25,metalness:.15}),darkGlass=mat('#233847'),doorMat=mat('#6e8b9c'),concreteMat=mat('#9ba9b0');
+const unitBoxGeometry=new THREE.BoxGeometry(1,1,1);
 function addPart(geometry,material,pos,parent=building,destructible=true){const mesh=new THREE.Mesh(geometry,material);mesh.position.set(...pos);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.destructible=destructible;mesh.userData.hp=1;parent.add(mesh);if(destructible)parts.push(mesh);return mesh}
-function box(w,h,d,material,pos,parent=building,destructible=true){return addPart(new THREE.BoxGeometry(w,h,d),material,pos,parent,destructible)}
+function box(w,h,d,material,pos,parent=building,destructible=true){const mesh=addPart(unitBoxGeometry,material,pos,parent,destructible);mesh.scale.set(w,h,d);return mesh}
 function makeWindow(x,y,z,w=.78,h=.72,front=true){
  const depth=.13, faceZ=front?z-.055:z+.055;
  box(w+.12,h+.12,depth,trimMat,[x,y,z],building,true);
@@ -201,6 +203,88 @@ function build(){
  c.fillStyle='#fff';c.font='bold 48px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('경덕중학교',256,64);
  const signTex=new THREE.CanvasTexture(signCanvas);
  box(3.5,.85,.12,new THREE.MeshStandardMaterial({map:signTex}),[-.5,5.7,-2.48],building,false);
+
+ // Fine campus detailing: roof equipment, gutters, window reflections, entrance canopy,
+ // schoolyard planting, sidewalk curbs, street furniture and varied neighborhood roofs.
+ const detailMat=mat('#d8dedb'), metalMat=mat('#687982'), warmGlass=mat('#88b4c4',.2);
+ // Roof parapets and ventilation boxes on the main classroom wing.
+ for(let x=-9;x<=3.5;x+=2.4){
+  box(.48,.42,.5,metalMat,[x,6.72,1.8],building,false);
+  box(.36,.12,.38,detailMat,[x,6.99,1.8],building,false);
+ }
+ box(8,.12,.16,mat('#c9d2d3'),[-2.8,6.53,-.33],building,false);
+ // Add layered window panes and visible mullions to the classroom facade.
+ for(let floor=0;floor<4;floor++){
+  const y=1.02+floor*1.55;
+  for(let col=0;col<10;col++){
+   const x=-8.55+col*1.18;
+   box(.035,.7,.035,mat('#d7e0df'),[x,y,-.49],building,false);
+   box(.035,.7,.025,mat('#789eae'),[x+.12,y,-.515],building,false);
+   box(.74,.035,.035,mat('#f0eee7'),[x,y+.38,-.49],building,false);
+  }
+ }
+ // Covered entrance canopy and columns.
+ box(3.1,.18,1.35,mat('#dce1dd'),[.2,2.48,-1.15],building,false);
+ box(3.2,.09,1.4,mat('#526c7b'),[.2,2.59,-1.15],building,false);
+ for(const x of [-1.05,.2,1.45])box(.12,1.25,.12,metalMat,[x,1.82,-1.55],building,false);
+ // Paved courtyard with alternating stone panels and a central planted island.
+ const paving=mat('#b8bcb8'), pavingDark=mat('#a4aaa7');
+ for(let x=-8;x<5;x+=1.25)for(let z=-4.8;z<-2.8;z+=1.05){
+  box(1.18,.035,.98,((Math.round(x+z*2)%3)===0)?pavingDark:paving,[x,-.035,z],building,false);
+ }
+ box(4.8,.12,1.5,mat('#5b6e59'),[-5.2,-.01,-3.4],building,false);
+ for(let i=0;i<5;i++){
+  const x=-7.1+i*.9;
+  const trunk=box(.13,.9,.13,mat('#70533d'),[x,.45,-3.4],building,false);
+  const crown=addPart(new THREE.IcosahedronGeometry(.48,1),mat(i%2?'#456f4b':'#5c8251'),[x,1.15,-3.4],building,false);
+ }
+ // Walkway bollards, benches and lamps around the public road.
+ for(let z=-9;z<12;z+=3.5){
+  box(.12,.8,.12,mat('#394d5a'),[10.7,.4,z],building,false);
+  box(.28,.08,.28,mat('#d8d7ce'),[10.7,.82,z],building,false);
+ }
+ for(const z of [-8,-2,4,10]){
+  box(.12,2.7,.12,metalMat,[14.4,1.35,z],building,false);
+  box(.7,.1,.12,mat('#e5d6a3'),[14.1,2.68,z],building,false);
+ }
+ for(const z of [-5,-1,3]){
+  box(1.6,.16,.42,mat('#795c46'),[8.8,.55,z],building,false);
+  box(1.55,.12,.38,mat('#9aab9d'),[8.8,.7,z],building,false);
+  for(const x of [8.2,9.4])box(.09,.52,.09,metalMat,[x,.28,z],building,false);
+ }
+ // Detailed sports ground: athletics lanes, football markings, goals and basketball key.
+ for(let i=0;i<4;i++){
+  const inset=i*.34;
+  const lane=new THREE.Mesh(new THREE.RingGeometry(3.35-inset,3.38-inset,80,.1),mat('#e7d5bf'));
+  lane.rotation.x=-Math.PI/2;lane.position.set(-10,.078+i*.001,1.6);building.add(lane);
+ }
+ box(5.3,.025,.035,mat('#f4f0df'),[-10,.08,1.6],building,false);
+ box(.035,.025,8.1,mat('#f4f0df'),[-10,.08,1.6],building,false);
+ for(const z of [-2.2,5.4]){
+  box(2.1,.025,.035,mat('#f4f0df'),[-10,.08,z],building,false);
+  box(.035,.025,1.6,mat('#f4f0df'),[-11.05,.08,z+.8],building,false);
+  box(.035,.025,1.6,mat('#f4f0df'),[-8.95,.08,z+.8],building,false);
+ }
+ // Tree-lined western slope with layered foliage and varied canopy sizes.
+ for(let i=0;i<28;i++){
+  const x=-16+(i%7)*1.35, z=5.5+Math.floor(i/7)*1.8;
+  const height=1.6+(i%4)*.25;
+  box(.16,height,.16,mat('#5e4a38'),[x,height/2,z],building,false);
+  const crown=addPart(new THREE.IcosahedronGeometry(.78+(i%3)*.1,1),mat(['#476746','#56794d','#668454'][i%3]),[x,height+.25,z],building,false);
+  crown.scale.set(1,1.15,.95);
+ }
+ // A little rooftop variety for shops and homes beyond the main road.
+ for(let i=0;i<9;i++){
+  const x=19.2+(i%3)*2.65,z=10+Math.floor(i/3)*3.1;
+  box(2.0,.16,2.25,mat(i%2?'#596f7d':'#8a6257'),[x,2.02,z],building,false);
+  box(.16,.55,.16,mat('#d9d7ce'),[x-.62,1.15,z-1.18],building,false);
+  box(.16,.55,.16,mat('#d9d7ce'),[x+.62,1.15,z-1.18],building,false);
+  box(.72,.62,.07,warmGlass,[x,1.15,z-1.29],building,false);
+ }
+ // Painted pedestrian crossing and curb markings at the street junction.
+ for(let i=0;i<7;i++)box(.42,.025,1.4,mat('#eee9d9'),[12.0+i*.52,.01,-11.0],building,false);
+ for(let i=0;i<10;i++)box(.12,.025,.65,mat('#e7e1d1'),[8.1+i*.72,.01,-11.65],building,false);
+
  scene.add(building);
  updateStatus();controls.target.set(-2,2.4,0);controls.update();
 }
@@ -233,10 +317,10 @@ renderer.domElement.addEventListener('pointerup',e=>{
 });
 let down=null;renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};renderer.domElement.__dragged=false});
 renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>7)renderer.domElement.__dragged=true});
-renderer.domElement.addEventListener('pointercancel',()=>{down=null});
+renderer.domElement.addEventListener('pointercancel',()=>{down=null});renderer.domElement.addEventListener('pointerup',()=>{down=null});
 document.querySelectorAll('.weapon').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();weapon=btn.dataset.weapon;document.querySelectorAll('.weapon').forEach(x=>x.classList.toggle('active',x===btn));say(({laser:'광선 선택',impact:'충격 선택',wave:'파동 선택'})[weapon])}));
 document.querySelector('#reset').addEventListener('click',()=>{shots=0;build();say('건물을 다시 만들었어')});
-function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.25))}
+function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.65))}
 window.addEventListener('resize',resize);
 function animate(){requestAnimationFrame(animate);controls.update();for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life--;if(e.fragment){e.obj.position.add(e.velocity);e.velocity.y-=.003;e.obj.rotation.x+=.04;e.obj.rotation.z+=.03;e.obj.material.transparent=true;e.obj.material.opacity=Math.max(0,e.life/e.max)}else{const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1)*2);e.obj.material.opacity=Math.max(0,1-t)}if(e.life<=0){scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose();effects.splice(i,1)}}renderer.render(scene,camera)}
 build();animate();
