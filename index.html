@@ -315,13 +315,12 @@ function makeToolVisual(point,normal,screenX){
  let start,end,travel;
  if(side===0){
   start=point.clone().add(new THREE.Vector3(0,4.8,0)).addScaledVector(towardViewer,3.0);
-  end=point.clone().addScaledVector(towardViewer,1.65);
-  travel=end.clone().sub(start).normalize();
  }else{
   start=point.clone().addScaledVector(right,side*3.6).add(new THREE.Vector3(0,1.55,0)).addScaledVector(towardViewer,3.0);
-  end=point.clone().addScaledVector(towardViewer,1.65).addScaledVector(right,side*.15);
-  travel=end.clone().sub(start).normalize();
  }
+ // End the bat/hammer animation where the striking end meets the clicked point.
+ travel=point.clone().sub(start).normalize();
+ end=point.clone().addScaledVector(travel,-2.15);
  tool.position.copy(start);tool.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),travel);scene.add(tool);
  effects.push({obj:tool,life:16,max:16,toolSwing:true,start:start.clone(),end,travel});
 }
