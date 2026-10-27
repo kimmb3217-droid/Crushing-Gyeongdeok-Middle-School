@@ -31,8 +31,8 @@
   <div class="hint">드래그: 3D 회전<br>두 손가락/휠: 확대·축소<br>도구 선택 후 건물을 눌러 타격</div>
   <div class="controls">
    <div class="weapons">
-    <button class="weapon active" data-weapon="hammer"><span aria-hidden="true">🔨</span> 망치</button>
-    <button class="weapon" data-weapon="bat"><span aria-hidden="true">⚾</span> 야구 빠따</button>
+    <button class="weapon" data-weapon="hammer"><span aria-hidden="true">🔨</span> 망치</button>
+    <button class="weapon active" data-weapon="bat"><span aria-hidden="true">⚾</span> 야구 빠따</button>
    </div>
    <button class="reset" id="reset">↻ 다시 만들기</button>
   </div>
@@ -54,7 +54,7 @@ scene.add(new THREE.HemisphereLight(0xc9e6ff,0x354254,2.0));
 const sun=new THREE.DirectionalLight(0xfff1d6,3.1);sun.position.set(-12,22,15);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-28;sun.shadow.camera.right=28;sun.shadow.camera.top=28;sun.shadow.camera.bottom=-28;sun.shadow.bias=-0.00035;scene.add(sun);
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:'#26384a',roughness:.95}));ground.rotation.x=-Math.PI/2;ground.position.y=-.08;ground.receiveShadow=true;scene.add(ground);
 const grid=new THREE.GridHelper(70,70,'#486176','#31465a');grid.position.y=-.06;scene.add(grid);
-let building=new THREE.Group(),parts=[],effects=[],weapon='hammer',shots=0,toastTimer,shakePower=0; const baseCameraPosition=new THREE.Vector3();
+let building=new THREE.Group(),parts=[],effects=[],weapon='bat',shots=0,toastTimer,shakePower=0; const baseCameraPosition=new THREE.Vector3();
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 const materialCache=new Map();
 function mat(color,roughness=.78){const key=color+'|'+roughness;if(materialCache.has(key))return materialCache.get(key);const m=new THREE.MeshStandardMaterial({color,roughness,metalness:.02});materialCache.set(key,m);return m}
@@ -327,59 +327,72 @@ function makeToolVisual(point,normal,screenX){
 function damageLocalPatch(p,point){
  const worldCenter=p.getWorldPosition(new THREE.Vector3());
  const worldScale=p.getWorldScale(new THREE.Vector3());
- const size=new THREE.Vector3(Math.abs(worldScale.x),Math.abs(worldScale.y),Math.abs(worldScale.z));
- const nx=size.x>2.5?7:size.x>.9?5:1, ny=size.y>2.5?5:size.y>.9?4:1, nz=size.z>2.5?5:size.z>.9?4:1;
- const cellSize=new THREE.Vector3(size.x/nx,size.y/ny,size.z/nz);
- // Break a broad impact patch so it feels like a solid hit, while keeping untouched blocks in place.
- const impactRadius=weapon==='bat'?Math.max(.82,Math.min(1.65,Math.max(size.x,size.y,size.z)*.34)):.72;
- let broken=[],kept=[];
- for(let ix=0;ix<nx;ix++)for(let iy=0;iy<ny;iy++)for(let iz=0;iz<nz;iz++){
-  const offset=new THREE.Vector3(-size.x/2+cellSize.x*(ix+.5),-size.y/2+cellSize.y*(iy+.5),-size.z/2+cellSize.z*(iz+.5));
-  const center=worldCenter.clone().add(offset);
-  const d=center.distanceTo(point);
-  if(d<impactRadius+Math.min(cellSize.x,cellSize.y,cellSize.z)*.28)broken.push({center,size:cellSize.clone(),d,ix,iy,iz});
-  else kept.push({center,size:cellSize.clone(),ix,iy,iz});
+ const size=new THREE.Vector3(Math.max(.08,Math.abs(worldScale.x)),Math.max(.08,Math.abs(worldScale.y)),Math.max(.08,Math.abs(worldScale.z)));
+ // Textured signs/posters are atomic: splitting their UVs would repeat or scramble the lettering.
+ if(p.material?.map){
+  p.visible=false;
+  return [{center:worldCenter.clone(),size:size.clone(),material:p.material,source:p}];
  }
- // Tiny objects should still break; larger objects are replaced by only the surviving cells.
- if(!broken.length){p.visible=false;return [p,worldCenter,size];}
+ const nx=size.x>2.5?8:size.x>.9?5:1, ny=size.y>2.5?6:size.y>.9?4:1, nz=size.z>2.5?6:size.z>.9?4:1;
+ const cellSize=new THREE.Vector3(size.x/nx,size.y/ny,size.z/nz);
+ const impactRadius=weapon==='bat'?Math.max(1.05,Math.min(2.05,Math.max(size.x,size.y,size.z)*.43)):.9;
+ const broken=[],kept=[];
+ // Use each cell's world-space center; this keeps the damage patch centered on the actual hit.
+ for(let ix=0;ix<nx;ix++)for(let iy=0;iy<ny;iy++)for(let iz=0;iz<nz;iz++){
+  const center=worldCenter.clone().add(new THREE.Vector3(-size.x/2+cellSize.x*(ix+.5),-size.y/2+cellSize.y*(iy+.5),-size.z/2+cellSize.z*(iz+.5)));
+  const d=center.distanceTo(point);
+  const cell={center,size:cellSize.clone(),d,ix,iy,iz,material:p.material,source:p};
+  if(d<impactRadius+Math.min(cellSize.x,cellSize.y,cellSize.z)*.48)broken.push(cell);
+  else kept.push(cell);
+ }
+ if(!broken.length){p.visible=false;return [{center:worldCenter.clone(),size:size.clone(),material:p.material,source:p}];}
  p.visible=false;
  for(const cell of kept){
-  const geo=new THREE.BoxGeometry(cell.size.x*.99,cell.size.y*.99,cell.size.z*.99);
-  if(p.material.map){
-   const uv=geo.attributes.uv;
-   for(let face=4;face<=5;face++)for(let vtx=0;vtx<4;vtx++){const idx=face*4+vtx;uv.setXY(idx,(uv.getX(idx)+cell.ix)/nx,(uv.getY(idx)+cell.iy)/ny);}
-   uv.needsUpdate=true;
-  }
-  const mesh=new THREE.Mesh(geo,p.material);mesh.position.copy(cell.center);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.destructible=true;mesh.userData.hp=1;
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(cell.size.x*.985,cell.size.y*.985,cell.size.z*.985),p.material);
+  mesh.position.copy(cell.center);mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.destructible=true;mesh.userData.hp=1;
   scene.add(mesh);parts.push(mesh);
  }
- return [p,point.clone(),new THREE.Vector3(Math.max(cellSize.x,impactRadius),Math.max(cellSize.y,impactRadius),Math.max(cellSize.z,impactRadius))];
+ return broken;
 }
 function hit(point,normal,screenX,targetObject){
  shots++;makeToolVisual(point,normal,screenX);
- shakePower=Math.min(.48,shakePower+(weapon==='hammer'?.2:.32));
- const candidates=targetObject&&targetObject.visible?[{p:targetObject}]:parts.filter(p=>p.visible&&p.userData.destructible!==false)
-  .map(p=>({p,world:p.getWorldPosition(new THREE.Vector3()),scale:p.getWorldScale(new THREE.Vector3())}))
-  .map(o=>({...o,dist:new THREE.Vector3(Math.max(Math.abs(o.world.x-point.x)-o.scale.x/2,0),Math.max(Math.abs(o.world.y-point.y)-o.scale.y/2,0),Math.max(Math.abs(o.world.z-point.z)-o.scale.z/2,0)).length()}))
-  .filter(o=>o.dist<.5).sort((a,b)=>a.dist-b.dist);
- // Damage the exact raycast surface object, not a neighboring object.
- if(candidates.length){
-  const [p,pos,boxSize]=damageLocalPatch(candidates[0].p,point);
-  const viewDir=new THREE.Vector3();camera.getWorldDirection(viewDir);
-  const fragCount=weapon==='hammer'?18:28;
-  for(let j=0;j<fragCount;j++){
-   const geom=new THREE.BoxGeometry(Math.max(.09,boxSize.x*(.12+Math.random()*.16)),Math.max(.09,boxSize.y*(.12+Math.random()*.16)),Math.max(.09,boxSize.z*(.12+Math.random()*.16)));
-   const frag=new THREE.Mesh(geom,p.material.clone());
-   frag.position.copy(pos).add(new THREE.Vector3((Math.random()-.5)*.5,(Math.random()-.5)*.5,(Math.random()-.5)*.5));
-   frag.castShadow=true;frag.receiveShadow=true;scene.add(frag);
-   const outward=frag.position.clone().sub(point).normalize();
-   const velocity=outward.multiplyScalar((weapon==='hammer'?.38:.68)+Math.random()*.52).addScaledVector(viewDir,.18+Math.random()*.18);
-   velocity.y+=.12+Math.random()*.26;
-   effects.push({obj:frag,life:180,max:180,velocity,angular:new THREE.Vector3((Math.random()-.5)*.22,(Math.random()-.5)*.22,(Math.random()-.5)*.22),fragment:true,bounces:0});
+ shakePower=Math.min(.72,shakePower+(weapon==='hammer'?.24:.48));
+ const radius=weapon==='bat'?1.9:1.05;
+ // Hit the selected piece and nearby pieces, creating a wider collapse instead of a tiny pinhole.
+ const nearby=parts.filter(p=>p.visible&&p.userData.destructible!==false).map(p=>{
+  const center=p.getWorldPosition(new THREE.Vector3()),scale=p.getWorldScale(new THREE.Vector3());
+  const nearest=new THREE.Vector3(
+   THREE.MathUtils.clamp(point.x,center.x-Math.abs(scale.x)/2,center.x+Math.abs(scale.x)/2),
+   THREE.MathUtils.clamp(point.y,center.y-Math.abs(scale.y)/2,center.y+Math.abs(scale.y)/2),
+   THREE.MathUtils.clamp(point.z,center.z-Math.abs(scale.z)/2,center.z+Math.abs(scale.z)/2));
+  return {p,center,dist:nearest.distanceTo(point)};
+ }).filter(o=>o.p===targetObject||o.dist<radius).sort((a,b)=>(a.p===targetObject?-1:b.p===targetObject?1:a.dist-b.dist)).slice(0,weapon==='bat'?12:5);
+ const viewDir=new THREE.Vector3();camera.getWorldDirection(viewDir);
+ let fragmentCount=0;
+ for(const item of nearby){
+  const cells=damageLocalPatch(item.p,point);
+  for(const cell of cells){
+   if(fragmentCount>42)break;
+   const count=Math.min(5,Math.max(2,Math.ceil(10/(cells.length||1))));
+   for(let k=0;k<count&&fragmentCount<42;k++,fragmentCount++){
+    const s=cell.size;
+    const geom=new THREE.BoxGeometry(Math.max(.08,s.x*(.28+Math.random()*.28)),Math.max(.08,s.y*(.28+Math.random()*.28)),Math.max(.08,s.z*(.28+Math.random()*.28)));
+    const mat=cell.material.clone();
+    // Keep a sign's original texture on one whole shard, never on a grid of repeated copies.
+    const frag=new THREE.Mesh(geom,mat);
+    frag.position.copy(cell.center).add(new THREE.Vector3((Math.random()-.5)*s.x*.25,(Math.random()-.5)*s.y*.25,(Math.random()-.5)*s.z*.25));
+    frag.castShadow=true;frag.receiveShadow=true;scene.add(frag);
+    const outward=frag.position.clone().sub(point);
+    if(outward.lengthSq()<.01)outward.copy(normal);
+    outward.normalize();
+    const velocity=outward.multiplyScalar((weapon==='hammer'?.5:.95)+Math.random()*.8).addScaledVector(viewDir,.22+Math.random()*.24);
+    velocity.y+=.18+Math.random()*.38;
+    effects.push({obj:frag,life:210,max:210,velocity,angular:new THREE.Vector3((Math.random()-.5)*.3,(Math.random()-.5)*.3,(Math.random()-.5)*.3),fragment:true,bounces:0});
+   }
   }
  }
- const puff=new THREE.Mesh(new THREE.IcosahedronGeometry(.12,1),new THREE.MeshBasicMaterial({color:'#e9d9b8',transparent:true,opacity:.8}));
- puff.position.copy(point);scene.add(puff);effects.push({obj:puff,life:10,max:10,scale:1.5});
+ const puff=new THREE.Mesh(new THREE.IcosahedronGeometry(.18,1),new THREE.MeshBasicMaterial({color:'#e9d9b8',transparent:true,opacity:.8}));
+ puff.position.copy(point);scene.add(puff);effects.push({obj:puff,life:13,max:13,scale:2.3});
  updateStatus();
 }
 const pickables=()=>parts.filter(p=>p.visible);
