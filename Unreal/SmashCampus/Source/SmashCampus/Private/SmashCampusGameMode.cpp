@@ -5,7 +5,6 @@
 #include "Kismet/GameplayStatics.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
-#include "UObject/ConstructorHelpers.h"
 #include "Engine/World.h"
 
 ASmashCampusGameMode::ASmashCampusGameMode()
@@ -90,8 +89,8 @@ void ASmashCampusGameMode::BuildTerrain()
 void ASmashCampusGameMode::AddBox(const FVector& Location, const FVector& Scale, FLinearColor Color, bool bDestructible)
 {
     UStaticMeshComponent* Mesh = NewObject<UStaticMeshComponent>(this);
-    static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
-    if (CubeMesh.Succeeded()) Mesh->SetStaticMesh(CubeMesh.Object);
+    UStaticMesh* CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+    if (CubeMesh) Mesh->SetStaticMesh(CubeMesh);
     Mesh->SetWorldLocation(Location);
     Mesh->SetWorldScale3D(Scale / 100.0f);
     Mesh->SetMaterial(0, MakeMaterial(Color));
@@ -132,8 +131,8 @@ void ASmashCampusGameMode::AddTree(const FVector& Location, float Scale)
 {
     AddBox(Location + FVector(0, 0, 120.0f * Scale), FVector(35.0f, 35.0f, 240.0f) * Scale, FLinearColor(0.27f, 0.16f, 0.08f));
     UStaticMeshComponent* Crown = NewObject<UStaticMeshComponent>(this);
-    static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
-    if (SphereMesh.Succeeded()) Crown->SetStaticMesh(SphereMesh.Object);
+    UStaticMesh* SphereMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+    if (SphereMesh) Crown->SetStaticMesh(SphereMesh);
     Crown->SetWorldLocation(Location + FVector(0, 0, 300.0f * Scale));
     Crown->SetWorldScale3D(FVector(1.9f, 1.9f, 2.1f) * Scale);
     Crown->SetMaterial(0, MakeMaterial(FLinearColor(0.10f, 0.28f, 0.10f)));
