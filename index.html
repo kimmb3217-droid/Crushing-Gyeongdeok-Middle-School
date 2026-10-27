@@ -60,19 +60,47 @@ function draw(){if(!W||!H)return;ctx.clearRect(0,0,W,H);let g=ctx.createLinearGr
  let unit=Math.min(W/(COLS+DEPTH+3),H/(ROWS+COLS*.45+DEPTH*.45+3))*zoom;
  // ground plane
  let ground=project({x:0,y:-.05,z:0}),r=unit*3.8;ctx.beginPath();ctx.ellipse(W*.5,H*.62,r*1.35,r*.68,0,0,Math.PI*2);ctx.fillStyle='#49627355';ctx.fill();ctx.strokeStyle='#7891a566';ctx.stroke();
- let ordered=blocks.filter(b=>b.alive).map(cube).sort((a,b)=>a.depth-b.depth);
- // 가상의 한국 중학교 외관: 밝은 외벽과 반복 창문
- for(const item of ordered){
-   let b=item.b,p=project(b),u=p.unit*.34,x=p.x,y=p.y;
-   const tint=b.hp===2?'#b9c8d4':'#d7e0e7';
-   poly([{x:x-u,y:y-u*.5},{x:x,y:y},{x:x,y:y+u*1.15},{x:x-u,y:y+u*.65}],'#879baa');
-   poly([{x:x,y:y},{x:x+u,y:y-u*.5},{x:x+u,y:y+u*.65},{x:x,y:y+u*1.15}],tint);
-   poly([{x:x,y:y-u},{x:x+u,y:y-u*.5},{x:x,y:y},{x:x-u,y:y-u*.5}],b.hp===2?'#edf3f6':'#f7fafc');
-   if(b.z===Math.max(...blocks.map(q=>q.z)) && b.y>=0){
-     const wx=x+u*.20,wy=y+u*.20,ww=u*.36,wh=u*.34;
-     ctx.fillStyle='#527f99';ctx.fillRect(wx,wy,ww,wh);
-     ctx.strokeStyle='#eaf4f8';ctx.lineWidth=Math.max(1,u*.035);ctx.strokeRect(wx,wy,ww,wh);
-     ctx.beginPath();ctx.moveTo(wx+ww/2,wy);ctx.lineTo(wx+ww/2,wy+wh);ctx.moveTo(wx,wy+wh/2);ctx.lineTo(wx+ww,wy+wh/2);ctx.stroke();
+ // 건물 전체를 하나의 학교 외관으로 렌더링 (개별 큐브 타일 대신)
+ const alive=blocks.filter(b=>b.alive).length, total=blocks.length, damageRatio=alive/total;
+ const bw=Math.min(W*.72,unit*COLS*1.22), bh=Math.min(H*.38,unit*ROWS*1.45);
+ const x=W*.5-bw*.52, y=H*.30, side=bw*.17, roofH=bh*.12;
+ const front=[{x:x,y:y+roofH},{x:x+bw,y:y+roofH},{x:x+bw,y:y+bh},{x:x,y:y+bh}];
+ // 측면과 지붕
+ poly([{x:x+bw,y:y+roofH},{x:x+bw+side,y:y},{x:x+bw+side,y:y+bh-roofH*.2},{x:x+bw,y:y+bh}], '#718697');
+ poly([{x:x,y:y+roofH},{x:x+side,y:y},{x:x+bw+side,y:y},{x:x+bw,y:y+roofH}], '#e8eef2');
+ // 정면 외벽
+ poly(front, '#d9e2e8');
+ // 층별 띠와 창문
+ const floors=3, windows=7, fw=bw/windows, fh=(bh-roofH)/(floors+0.6);
+ for(let row=0;row<floors;row++){
+   const wy=y+roofH+row*fh+fh*.2;
+   for(let col=0;col<windows;col++){
+     const wx=x+col*fw+fw*.23, ww=fw*.52, wh=fh*.48;
+     const idx=row*windows+col;
+     const destroyed=idx>=Math.floor(damageRatio*floors*windows);
+     if(!destroyed){
+       ctx.fillStyle='#4d7e9b';ctx.fillRect(wx,wy,ww,wh);
+       ctx.strokeStyle='#f5fafc';ctx.lineWidth=Math.max(1,unit*.025);ctx.strokeRect(wx,wy,ww,wh);
+       ctx.beginPath();ctx.moveTo(wx+ww/2,wy);ctx.lineTo(wx+ww/2,wy+wh);ctx.stroke();
+     }else{
+       ctx.fillStyle='#263746';ctx.fillRect(wx,wy,ww,wh);
+       ctx.strokeStyle='#526575';ctx.strokeRect(wx,wy,ww,wh);
+     }
+   }
+   ctx.fillStyle='#b8c8d2';ctx.fillRect(x,y+roofH+(row+1)*fh,bw,Math.max(1,unit*.035));
+ }
+ // 중앙 출입구와 학교 표지판
+ const doorW=bw*.105,doorH=bh*.24,doorX=x+bw*.45,doorY=y+bh-doorH;
+ ctx.fillStyle='#314b60';ctx.fillRect(doorX,doorY,doorW,doorH);
+ ctx.fillStyle='#a8c7d8';ctx.fillRect(doorX+doorW*.12,doorY+doorH*.12,doorW*.76,doorH*.36);
+ ctx.fillStyle='#17344b';ctx.fillRect(x+bw*.34,y+roofH*.25,bw*.32,Math.max(14,roofH*.48));
+ ctx.fillStyle='#f5fbff';ctx.font='bold '+Math.max(10,Math.min(16,bw*.025))+'px sans-serif';
+ ctx.textAlign='center';ctx.fillText('경덕중학교',x+bw*.50,y+roofH*.60);
+ // 파괴 효과는 건물 정면에만 표시되며, 외형은 학교 건물로 유지
+ if(damageRatio<.98){
+   for(let i=0;i<Math.floor((1-damageRatio)*12);i++){
+     const dx=x+bw*(.12+((i*37)%75)/100),dy=y+roofH+bh*(.12+((i*23)%65)/100);
+     ctx.fillStyle='#273746';ctx.fillRect(dx,dy,Math.max(3,unit*.12),Math.max(3,unit*.1));
    }
  }
  for(const e of effects){let t=1-e.life/e.max;if(e.type==='beam'){ctx.strokeStyle='#7cf3ff';ctx.lineWidth=3*(1-t)+.5;ctx.beginPath();ctx.moveTo(e.x1,e.y1);ctx.lineTo(e.x2,e.y2);ctx.stroke();ctx.strokeStyle='#e3ffff';ctx.lineWidth=1;ctx.stroke()}else{ctx.beginPath();ctx.arc(e.x,e.y,e.r*t,0,Math.PI*2);ctx.strokeStyle=e.color;ctx.lineWidth=4*(1-t)+1;ctx.stroke();ctx.fillStyle=e.color+'22';ctx.fill()}}
