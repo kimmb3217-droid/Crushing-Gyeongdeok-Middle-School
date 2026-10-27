@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#101827">
+<title>경덕중학교 뿌시기 · 모바일 테스트</title>
+<style>
+:root{color-scheme:dark;--bg:#101827;--panel:#1b2638;--line:#33445d;--cyan:#61e7ff;--text:#eef5ff;--muted:#aab8cc}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:system-ui,-apple-system,"Noto Sans KR",sans-serif;color:var(--text);touch-action:none}
+#game{display:block;width:100%;height:100%;touch-action:none}
+.hud{position:fixed;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;padding:12px;gap:8px}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}.brand,.stats,.hint,.weapons,.reset{background:#111b2bdc;border:1px solid #33445dcc;backdrop-filter:blur(8px);border-radius:14px;box-shadow:0 8px 28px #0003}
+.brand{padding:10px 13px;max-width:65%}.brand strong{display:block;font-size:15px}.brand small{display:block;color:var(--muted);font-size:11px;margin-top:3px}
+.stats{padding:9px 11px;text-align:right;font-size:12px;line-height:1.65;white-space:nowrap}.stats b{color:var(--cyan)}
+.bottom{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}.hint{padding:9px 11px;color:#c2d0e3;font-size:11px;max-width:47%;line-height:1.4}.controls{display:flex;flex-direction:column;gap:7px;align-items:flex-end;pointer-events:auto}
+.weapons{display:flex;padding:5px;gap:4px}.weapon,.reset{border:1px solid #41536d;background:#1b2a40;color:var(--text);border-radius:10px;padding:10px 11px;font-weight:700;font-size:12px;min-height:42px;touch-action:manipulation}
+.weapon.active{background:#17445b;border-color:var(--cyan);color:#9af0ff;box-shadow:inset 0 0 0 1px #61e7ff55}
+.reset{background:#243149}.toast{position:fixed;left:50%;top:19%;transform:translateX(-50%);padding:9px 13px;background:#07111eea;border:1px solid #4a607a;border-radius:999px;font-size:12px;opacity:0;transition:opacity .18s;pointer-events:none;white-space:nowrap}.toast.show{opacity:1}
+@media(min-width:700px){.hud{padding:20px}.brand strong{font-size:18px}.brand small,.hint{font-size:13px}.weapon,.reset{font-size:14px;padding:12px 16px}}
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="가상 블록 건물 게임"></canvas>
+<div class="hud">
+ <div class="top">
+  <div class="brand"><strong>🏫 경덕중학교 뿌시기</strong><small>가상의 블록 건물 · 모바일 웹 테스트</small></div>
+  <div class="stats">남은 블록 <b id="remaining">105</b><br>공격 횟수 <b id="shots">0</b></div>
+ </div>
+ <div class="bottom">
+  <div class="hint">화면을 드래그해 회전<br>건물을 탭해 공격 · 두 손가락으로 확대/축소</div>
+  <div class="controls">
+   <div class="weapons">
+    <button class="weapon active" data-weapon="laser">레이저</button>
+    <button class="weapon" data-weapon="missile">미사일</button>
+    <button class="weapon" data-weapon="shock">충격파</button>
+   </div>
+   <button class="reset" id="reset">↻ 건물 재생성</button>
+  </div>
+ </div>
+</div>
+<div class="toast" id="toast">공격!</div>
+<script>
+(()=>{
+const canvas=document.querySelector('#game'),ctx=canvas.getContext('2d');
+const remainingEl=document.querySelector('#remaining'),shotsEl=document.querySelector('#shots'),toast=document.querySelector('#toast');
+let W=0,H=0,dpr=1,angle=-.55,zoom=1,weapon='laser',shots=0,blocks=[],effects=[],toastTimer;
+const COLS=7,ROWS=3,DEPTH=5;
+function resize(){dpr=Math.min(window.devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=Math.round(W*dpr);canvas.height=Math.round(H*dpr);canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0);draw()}
+window.addEventListener('resize',resize);
+function reset(){blocks=[];for(let y=0;y<ROWS;y++)for(let z=0;z<DEPTH;z++)for(let x=0;x<COLS;x++)blocks.push({x:x-(COLS-1)/2,y,z:z-(DEPTH-1)/2,hp:1+((x+z+y)%4===0?1:0),alive:true,id:blocks.length});shots=0;effects=[];updateStats();draw();say('새 건물을 만들었어')}
+function updateStats(){remainingEl.textContent=blocks.filter(b=>b.alive).length;shotsEl.textContent=shots}
+function say(s){toast.textContent=s;toast.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.classList.remove('show'),950)}
+function project(b){let c=Math.cos(angle),s=Math.sin(angle),rx=b.x*c-b.z*s,rz=b.x*s+b.z*c;let unit=Math.min(W/(COLS+DEPTH+3),H/(ROWS+COLS*.45+DEPTH*.45+3))*zoom;let cx=W*.5,cy=H*.51;return {x:cx+(rx-rz)*unit*.68,y:cy+(rx+rz)*unit*.34-b.y*unit*.82,unit,depth:rx+rz+b.y*.5}}
+function poly(points,fill,stroke='#0d1827'){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fillStyle=fill;ctx.fill();ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke()}
+function cube(b){let p=project(b),u=p.unit*.34;let x=p.x,y=p.y;let top=[{x:x,y:y-u},{x:x+u,y:y-u*.5},{x:x,y:y},{x:x-u,y:y-u*.5}];let left=[{x:x-u,y:y-u*.5},{x:x,y:y},{x:x,y:y+u*1.15},{x:x-u,y:y+u*.65}];let right=[{x:x,y:y},{x:x+u,y:y-u*.5},{x:x+u,y:y+u*.65},{x:x,y:y+u*1.15}];let hue=195+(b.x+b.z)*2;let health=b.hp===2?'#7f94a9':'#607b95';poly(left,'#344a61');poly(right,health);poly(top,b.hp===2?'#91b1c9':'#8ba7bd');return {b,depth:p.depth,points:[...top,...left,...right],cx:x,cy:y+u*.25,rad:u*1.5}}
+function draw(){if(!W||!H)return;ctx.clearRect(0,0,W,H);let g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,'#14243a');g.addColorStop(1,'#263b4e');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ // stars / subtle background
+ ctx.fillStyle='#ffffff10';for(let i=0;i<28;i++){let x=(i*97+31)%W,y=(i*61+17)%(H*.65);ctx.fillRect(x,y,2,2)}
+ let unit=Math.min(W/(COLS+DEPTH+3),H/(ROWS+COLS*.45+DEPTH*.45+3))*zoom;
+ // ground plane
+ let ground=project({x:0,y:-.05,z:0}),r=unit*3.8;ctx.beginPath();ctx.ellipse(W*.5,H*.62,r*1.35,r*.68,0,0,Math.PI*2);ctx.fillStyle='#49627355';ctx.fill();ctx.strokeStyle='#7891a566';ctx.stroke();
+ let ordered=blocks.filter(b=>b.alive).map(cube).sort((a,b)=>a.depth-b.depth);
+ // draw order corrected by depth
+ for(const item of ordered){let b=item.b,p=project(b),u=p.unit*.34,x=p.x,y=p.y;poly([{x:x-u,y:y-u*.5},{x:x,y:y},{x:x,y:y+u*1.15},{x:x-u,y:y+u*.65}],'#344a61');poly([{x:x,y:y},{x:x+u,y:y-u*.5},{x:x+u,y:y+u*.65},{x:x,y:y+u*1.15}],b.hp===2?'#526d86':'#607b95');poly([{x:x,y:y-u},{x:x+u,y:y-u*.5},{x:x,y:y},{x:x-u,y:y-u*.5}],b.hp===2?'#91b1c9':'#8ba7bd')}
+ for(const e of effects){let t=1-e.life/e.max;if(e.type==='beam'){ctx.strokeStyle='#7cf3ff';ctx.lineWidth=3*(1-t)+.5;ctx.beginPath();ctx.moveTo(e.x1,e.y1);ctx.lineTo(e.x2,e.y2);ctx.stroke();ctx.strokeStyle='#e3ffff';ctx.lineWidth=1;ctx.stroke()}else{ctx.beginPath();ctx.arc(e.x,e.y,e.r*t,0,Math.PI*2);ctx.strokeStyle=e.color;ctx.lineWidth=4*(1-t)+1;ctx.stroke();ctx.fillStyle=e.color+'22';ctx.fill()}}
+ updateStats();
+}
+function nearest(px,py){let best=null,bd=Infinity;for(const b of blocks){if(!b.alive)continue;let p=project(b),u=p.unit*.34,dx=px-p.x,dy=py-(p.y+u*.2),d=dx*dx+dy*dy*.7;if(d<bd){bd=d;best=b}}return bd<Math.pow(Math.min(W,H)*.28,2)?best:null}
+function attack(px,py){let b=nearest(px,py);if(!b){say('건물 블록을 탭해 줘');return}shots++;let target=project(b);if(weapon==='laser'){damage(b,2);effects.push({type:'beam',x1:W*.5,y1:H*.77,x2:target.x,y2:target.y,life:12,max:12});say('레이저 발사!')}else if(weapon==='missile'){area(b,1,3);effects.push({type:'burst',x:target.x,y:target.y,r:Math.min(W,H)*.18,life:20,max:20,color:'#ff9c52'});say('미사일 폭발!')}else{area(b,2,2);effects.push({type:'burst',x:target.x,y:target.y,r:Math.min(W,H)*.32,life:26,max:26,color:'#b18aff'});say('충격파 발생!')}updateStats();draw()}
+function damage(b,n){b.hp-=n;if(b.hp<=0)b.alive=false}
+function area(center,r,n){for(const b of blocks){if(!b.alive)continue;let d=Math.abs(b.x-center.x)+Math.abs(b.z-center.z)+Math.abs(b.y-center.y);if(d<=r)damage(b,n)}}
+document.querySelectorAll('.weapon').forEach(btn=>btn.addEventListener('click',e=>{e.stopPropagation();weapon=btn.dataset.weapon;document.querySelectorAll('.weapon').forEach(x=>x.classList.toggle('active',x===btn));say(({laser:'레이저 선택',missile:'미사일 선택',shock:'충격파 선택'})[weapon])}));
+document.querySelector('#reset').addEventListener('click',reset);
+let pointers=new Map(),lastX=0,lastY=0,lastPinch=0,moved=false;
+canvas.addEventListener('pointerdown',e=>{e.preventDefault();canvas.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY});lastX=e.clientX;lastY=e.clientY;moved=false;if(pointers.size===2){let a=[...pointers.values()];lastPinch=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)}});
+canvas.addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;let old=pointers.get(e.pointerId);pointers.set(e.pointerId,{...old,x:e.clientX,y:e.clientY});if(pointers.size>=2){let a=[...pointers.values()],dist=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);if(lastPinch)zoom=Math.max(.65,Math.min(1.8,zoom*dist/lastPinch));lastPinch=dist;moved=true;draw()}else{let dx=e.clientX-lastX,dy=e.clientY-lastY;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;if(moved){angle+=dx*.012;zoom=Math.max(.65,Math.min(1.8,zoom-dy*.001));draw()}}lastX=e.clientX;lastY=e.clientY});
+function pointerEnd(e){let p=pointers.get(e.pointerId);if(p&&pointers.size===1&&!moved){attack(p.x,p.y)}pointers.delete(e.pointerId);if(pointers.size<2)lastPinch=0}
+canvas.addEventListener('pointerup',pointerEnd);canvas.addEventListener('pointercancel',e=>pointers.delete(e.pointerId));
+canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.65,Math.min(1.8,zoom-e.deltaY*.001));draw()},{passive:false});
+function animate(){let changed=false;for(let i=effects.length-1;i>=0;i--){effects[i].life--;if(effects[i].life<=0)effects.splice(i,1);changed=true}if(changed)draw();requestAnimationFrame(animate)}
+reset();resize();animate();
+})();
+</script>
+</body>
+</html>
