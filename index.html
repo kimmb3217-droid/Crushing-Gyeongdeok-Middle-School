@@ -54,7 +54,7 @@ scene.add(new THREE.HemisphereLight(0xc9e6ff,0x354254,2.0));
 const sun=new THREE.DirectionalLight(0xfff1d6,3.1);sun.position.set(-12,22,15);sun.castShadow=true;sun.shadow.mapSize.set(1536,1536);sun.shadow.camera.left=-28;sun.shadow.camera.right=28;sun.shadow.camera.top=28;sun.shadow.camera.bottom=-28;sun.shadow.bias=-0.00035;scene.add(sun);
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({color:'#26384a',roughness:.95}));ground.rotation.x=-Math.PI/2;ground.position.y=-.08;ground.receiveShadow=true;scene.add(ground);
 const grid=new THREE.GridHelper(70,70,'#486176','#31465a');grid.position.y=-.06;scene.add(grid);
-let building=new THREE.Group(),parts=[],effects=[],weapon='hammer',shots=0,toastTimer;
+let building=new THREE.Group(),parts=[],effects=[],weapon='hammer',shots=0,toastTimer,shakePower=0; const baseCameraPosition=new THREE.Vector3();
 const raycaster=new THREE.Raycaster(),pointer=new THREE.Vector2();
 const materialCache=new Map();
 function mat(color,roughness=.78){const key=color+'|'+roughness;if(materialCache.has(key))return materialCache.get(key);const m=new THREE.MeshStandardMaterial({color,roughness,metalness:.02});materialCache.set(key,m);return m}
@@ -304,27 +304,32 @@ function makeToolVisual(point){
   const grip=new THREE.Mesh(new THREE.CylinderGeometry(.09,.1,.42,10),new THREE.MeshStandardMaterial({color:'#343b43'}));
   grip.position.y=-.83;grip.rotation.z=-.22;tool.add(grip);
  }
- tool.position.copy(point).add(new THREE.Vector3(1.5,1.15,1.3));
- tool.scale.setScalar(1.05);
+ tool.position.copy(point).add(new THREE.Vector3(2.2,1.7,2.1));
+ tool.scale.setScalar(1.85);
  tool.rotation.set(-.3,.35,weapon==='hammer'?-.95:-.7);
  scene.add(tool);
  effects.push({obj:tool,life:18,max:18,toolSwing:true,startRot:tool.rotation.z});
 }
 function hit(point){
- shots++;
- makeToolVisual(point);
- const radius=weapon==='hammer'?1.35:2.45;
- const candidates=parts.filter(p=>p.visible).map(p=>({p,world:p.getWorldPosition(new THREE.Vector3())})).map(o=>({...o,dist:o.world.distanceTo(point)})).filter(o=>o.dist<radius);
+ shots++;makeToolVisual(point);shakePower=Math.min(0.38,shakePower+(weapon==='hammer'?.16:.28));
+ const radius=weapon==='hammer'?1.05:1.7;
+ const candidates=parts.filter(p=>p.visible&&p.userData.destructible!==false).map(p=>({p,world:p.getWorldPosition(new THREE.Vector3())})).map(o=>({...o,dist:o.world.distanceTo(point)})).filter(o=>o.dist<radius);
  candidates.sort((a,b)=>a.dist-b.dist);
- const amount=weapon==='hammer'?Math.min(3,candidates.length):Math.min(8,candidates.length);
+ // Only local surface pieces break; a roof strike does not remove the entire roof.
+ const amount=weapon==='hammer'?Math.min(2,candidates.length):Math.min(4,candidates.length);
  for(let i=0;i<amount;i++){
-  const p=candidates[i].p;p.visible=false;
-  const pos=p.getWorldPosition(new THREE.Vector3()),geom=new THREE.BoxGeometry(.22,.22,.22);
-  const frag=new THREE.Mesh(geom,p.material.clone());frag.position.copy(pos);frag.castShadow=true;scene.add(frag);
-  const dir=pos.clone().sub(point).normalize();dir.y=Math.abs(dir.y)+.8;
-  effects.push({obj:frag,life:55,max:55,velocity:dir.multiplyScalar(.045+Math.random()*.055),fragment:true});
+  const p=candidates[i].p, pos=p.getWorldPosition(new THREE.Vector3());
+  p.visible=false;
+  const boxSize=new THREE.Vector3();p.geometry.computeBoundingBox();p.geometry.boundingBox.getSize(boxSize);
+  const fragCount=3;
+  for(let j=0;j<fragCount;j++){
+   const geom=new THREE.BoxGeometry(Math.max(.09,boxSize.x*.28),Math.max(.09,boxSize.y*.28),Math.max(.09,boxSize.z*.28));
+   const frag=new THREE.Mesh(geom,p.material.clone());frag.position.copy(pos).add(new THREE.Vector3((Math.random()-.5)*boxSize.x,(Math.random()-.5)*boxSize.y,(Math.random()-.5)*boxSize.z));frag.castShadow=true;scene.add(frag);
+   const dir=frag.position.clone().sub(point).normalize();dir.y=Math.abs(dir.y)+.35;
+   effects.push({obj:frag,life:75,max:75,velocity:dir.multiplyScalar(.09+Math.random()*.11),fragment:true});
+  }
  }
- updateStatus();say(weapon==='hammer'?'🔨 망치로 타격! 건물 파손':'⚾ 빠따로 타격! 넓은 범위 파손');
+ updateStatus();say('');
 }
 const pickables=()=>parts.filter(p=>p.visible);
 renderer.domElement.addEventListener('pointerup',e=>{
@@ -340,7 +345,7 @@ document.querySelectorAll('.weapon').forEach(btn=>btn.addEventListener('click',e
 document.querySelector('#reset').addEventListener('click',()=>{shots=0;build();say('건물을 다시 만들었어')});
 function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.65))}
 window.addEventListener('resize',resize);
-function animate(){requestAnimationFrame(animate);controls.update();for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life--;if(e.toolSwing){const t=1-e.life/e.max;e.obj.rotation.z=e.startRot+Math.sin(t*Math.PI)*1.65;e.obj.position.x-=.035; e.obj.position.y-=.025;}else if(e.fragment){e.obj.position.add(e.velocity);e.velocity.y-=.003;e.obj.rotation.x+=.04;e.obj.rotation.z+=.03;e.obj.material.transparent=true;e.obj.material.opacity=Math.max(0,e.life/e.max)}else{const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1)*2);e.obj.material.opacity=Math.max(0,1-t)}if(e.life<=0){scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose();effects.splice(i,1)}}renderer.render(scene,camera)}
+function animate(){requestAnimationFrame(animate);controls.update();if(shakePower>0.002){camera.position.x+=(Math.random()-.5)*shakePower;camera.position.y+=(Math.random()-.5)*shakePower;shakePower*=.88;}for(let i=effects.length-1;i>=0;i--){const e=effects[i];e.life--;if(e.toolSwing){const t=1-e.life/e.max;e.obj.rotation.z=e.startRot+Math.sin(t*Math.PI)*1.65;e.obj.position.x-=.035; e.obj.position.y-=.025;}else if(e.fragment){e.obj.position.add(e.velocity);e.velocity.y-=.003;e.obj.rotation.x+=.04;e.obj.rotation.z+=.03;e.obj.material.transparent=true;e.obj.material.opacity=Math.max(0,e.life/e.max)}else{const t=1-e.life/e.max;e.obj.scale.setScalar(1+t*(e.scale||1)*2);e.obj.material.opacity=Math.max(0,1-t)}if(e.life<=0){scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose();effects.splice(i,1)}}renderer.render(scene,camera)}
 build();animate();
 </script>
 </body>
