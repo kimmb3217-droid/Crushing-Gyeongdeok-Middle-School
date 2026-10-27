@@ -70,220 +70,119 @@ function makeWindow(x,y,z,w=.78,h=.72,front=true){
  box(w,.045,.035,trimMat,[x,y,faceZ-.055],building,true);
 }
 function build(){
- scene.remove(building);building=new THREE.Group();parts=[];effects.forEach(e=>{scene.remove(e.obj);e.obj.geometry?.dispose()});effects=[];
- // Terrain/campus base: stepped hillside rather than a single flat platform.
- const earth=mat('#66704f'), asphalt=mat('#858b8b'), trackMat=mat('#b66e62'), fieldMat=mat('#a5aa82'), fenceMat=mat('#b9c4c7');
- box(34,.35,28,earth,[0,-.38,0],building,false);
- // Sloped wooded ridge behind the campus.
- for(let i=0;i<12;i++){
-  const x=-15+i*2.65, h=2.2+Math.sin(i*.7)*.7;
-  box(2.9,h,2.6,earth,[x,h/2-0.15,10.8],building,false);
-  for(let j=0;j<2;j++){
-   const tx=x+(j-.5)*.7, ty=h+1.2+(j%2)*.4;
-   const trunk=box(.22,1.4,.22,mat('#5a4939'),[tx,ty-.4,10.3],building,false);
-   const crown=addPart(new THREE.IcosahedronGeometry(.95,1),mat(i%3?'#526d4c':'#687b51'),[tx,ty+.55,10.3],building,false);
-  }
+ // Rebuilt from the ground up: sculpted campus terrain, curved roads and full-size building meshes.
+ scene.remove(building);building=new THREE.Group();
+ parts=[];effects.forEach(e=>{scene.remove(e.obj);e.obj.geometry?.dispose();if(Array.isArray(e.obj.material))e.obj.material.forEach(m=>m.dispose());else e.obj.material?.dispose()});effects=[];
+ const standard=(color,roughness=.82)=>new THREE.MeshStandardMaterial({color,roughness});
+ const groundMat=standard('#69775b'), grassMat=standard('#81906a'), concrete=standard('#b5b8b0'), asphalt=standard('#424a50'), laneMat=standard('#ded8c7');
+ // Gentle terrain hills rather than a flat grid platform.
+ const n=100, span=66, verts=[], inds=[];
+ for(let iz=0;iz<=n;iz++)for(let ix=0;ix<=n;ix++){
+  const x=(ix/n-.5)*span,z=(iz/n-.5)*span;
+  const y=-.42+Math.sin(x*.16)*.16+Math.cos(z*.13)*.19+Math.sin((x+z)*.09)*.12;
+  verts.push(x,y,z);
+  if(ix<n&&iz<n){const a=iz*(n+1)+ix,b=a+1,d=(iz+1)*(n+1)+ix,e=d+1;inds.push(a,d,b,b,d,e);}
  }
- // Main classroom block: long 4-storey brown/grey facade with orange bands.
- function wing(cx,cz,w,d,floors,colors,opts={}){
-  const h=floors*1.55;
-  box(w,h,d,mat(colors.wall),[cx,h/2-.1,cz]);
-  // vertical pilasters and orange/blue facade strips
-  for(let k=0;k<=Math.floor(w/3);k++){
-   const x=cx-w/2+k*3;
-   box(.12,h+.08,.12,mat(colors.trim),[x,h/2-.08,cz-d/2-.07]);
+ const terrainGeo=new THREE.BufferGeometry();terrainGeo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));terrainGeo.setIndex(inds);terrainGeo.computeVertexNormals();
+ const terrain=new THREE.Mesh(terrainGeo,groundMat);terrain.receiveShadow=true;scene.add(terrain);
+ // Grass verge patches blend into the terrain.
+ for(let i=0;i<32;i++){
+  const x=-27+(i%8)*7.5,z=-25+Math.floor(i/8)*16;
+  const patch=new THREE.Mesh(new THREE.CircleGeometry(3.2+(i%3)*.7,32),grassMat);
+  patch.rotation.x=-Math.PI/2;patch.position.set(x,-.29+Math.sin(x*.16)*.16+Math.cos(z*.13)*.19,.0+z);patch.scale.y=.72;scene.add(patch);
+ }
+ function road(points,width,material,y=-.28){
+  const curve=new THREE.CatmullRomCurve3(points.map(p=>new THREE.Vector3(p[0],y,p[1])));
+  const segments=100,positions=[],indices=[];
+  for(let i=0;i<=segments;i++){
+   const t=i/segments,pt=curve.getPoint(t),tan=curve.getTangent(t),side=new THREE.Vector3(-tan.z,0,tan.x).normalize();
+   positions.push(pt.x+side.x*width/2,y,pt.z+side.z*width/2,pt.x-side.x*width/2,y,pt.z-side.z*width/2);
+   if(i<segments){const a=i*2;indices.push(a,a+1,a+2,a+1,a+3,a+2);}
   }
+  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();
+  const m=new THREE.Mesh(g,material);m.material.side=THREE.DoubleSide;m.receiveShadow=true;scene.add(m);
+ }
+ road([[-29,-12],[-15,-10],[-2,-11],[12,-8],[29,-13]],5.2,asphalt);
+ road([[-15,-28],[-12,-17],[-10,-5],[-8,8],[-10,27]],4.2,asphalt);
+ road([[4,-27],[5,-15],[8,-2],[13,12],[19,27]],4.4,asphalt);
+ // Painted lane dashes following the main road.
+ for(let i=0;i<15;i++){
+  const dash=new THREE.Mesh(new THREE.BoxGeometry(.12,.025,1.25),laneMat);
+  dash.position.set(-23+i*3.05,-.235,-11+Math.sin(i*.28)*.9);scene.add(dash);
+ }
+ // Building bodies are shaped meshes, not stacks of cube blocks.
+ const wallColors=['#c8c6ba','#b7b7ad','#d4d6d0','#c1b6a3'];
+ function buildingMesh(x,z,w,d,h,color,style=0){
+  const shape=new THREE.Shape();
+  const cut=Math.min(.65,w*.09,d*.12);
+  shape.moveTo(-w/2+cut,-d/2);shape.lineTo(w/2-cut,-d/2);shape.lineTo(w/2,-d/2+cut);
+  shape.lineTo(w/2,d/2-cut);shape.lineTo(w/2-cut,d/2);shape.lineTo(-w/2+cut,d/2);
+  shape.lineTo(-w/2,d/2-cut);shape.lineTo(-w/2,-d/2+cut);shape.closePath();
+  const geo=new THREE.ExtrudeGeometry(shape,{depth:h,bevelEnabled:true,bevelSegments:1,steps:1,bevelSize:.08,bevelThickness:.08});
+  geo.rotateX(-Math.PI/2);
+  // Extrusion now rises along Y; center its footprint at the supplied world position.
+  geo.translate(x,0,z);
+  const body=new THREE.Mesh(geo,standard(color));body.position.y=0;body.castShadow=true;body.receiveShadow=true;
+  body.userData.destructible=true;body.userData.hp=1;building.add(body);parts.push(body);
+  // Roof slab and parapet are distinct full pieces, so damage can remove them naturally.
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(w+.22,.22,d+.22),standard(style===1?'#8c393b':'#596b78'));
+  roof.position.set(x,h+.06,z);roof.castShadow=true;roof.receiveShadow=true;roof.userData.destructible=true;building.add(roof);parts.push(roof);
+  const front=z-d/2-.075;
+  const floors=Math.max(2,Math.floor(h/1.55));
   for(let f=0;f<floors;f++){
-   const y=.75+f*1.55;
-   box(w,.12,.1,mat(colors.trim),[cx,y-.55,cz-d/2-.08]);
-   for(let x=-w/2+.7;x<w/2-.3;x+=1.15){
-    box(.86,.72,.13,mat('#dfe4e2'),[cx+x,y,cz-d/2-.12]);
-    box(.72,.58,.07,mat('#5a8ca8'),[cx+x,y,cz-d/2-.18]);
-    box(.035,.58,.04,mat('#e5e8e4'),[cx+x,y,cz-d/2-.225]);
-    box(.72,.035,.04,mat('#e5e8e4'),[cx+x,y,cz-d/2-.225]);
+   const yy=.82+f*1.52;
+   for(let col=0;col<Math.floor(w/1.28);col++){
+    const wx=x-w/2+.72+col*1.28;
+    const frame=new THREE.Mesh(new THREE.BoxGeometry(.86,.76,.1),standard('#e3e5de'));
+    frame.position.set(wx,yy,front);frame.castShadow=true;frame.userData.destructible=true;building.add(frame);parts.push(frame);
+    const glass=new THREE.Mesh(new THREE.BoxGeometry(.69,.58,.035),new THREE.MeshStandardMaterial({color:style===1?'#477e9c':'#64899a',roughness:.22,metalness:.12}));
+    glass.position.set(wx,yy,front-.065);glass.userData.destructible=true;building.add(glass);parts.push(glass);
+    const mullion=new THREE.Mesh(new THREE.BoxGeometry(.035,.58,.04),standard('#e7e7df'));mullion.position.set(wx,yy,front-.09);mullion.userData.destructible=true;building.add(mullion);parts.push(mullion);
    }
   }
-  box(w+.25,.22,d+.35,mat(colors.roof),[cx,h+.02,cz]);
-  if(colors.band){
-   for(let f=0;f<floors;f++)box(w*.72,.38,.08,mat(colors.band),[cx,h/2-f*.02,cz-d/2-.16]);
+  // Continuous facade bands instead of a checkerboard of tiny wall blocks.
+  for(let f=1;f<floors;f++){
+   const band=new THREE.Mesh(new THREE.BoxGeometry(w+.12,.11,.12),standard(style===1?'#b85b4c':'#d8d8ce'));
+   band.position.set(x,f*1.52,front-.03);band.userData.destructible=true;building.add(band);parts.push(band);
   }
  }
- wing(-2.8,1.8,13.5,4.1,4,{wall:'#9a9489',trim:'#e4e3dc',roof:'#6b4d43',band:'#bd6846'});
- // Main building's blue-and-white end facade with red roof edge.
- box(1.5,6.3,4.25,mat('#2e6f9d'),[4.05,3.05,-.2]);
- box(.14,6.4,4.45,mat('#f1eee7'),[4.83,3.05,-.2]);
- box(13.8,.24,4.45,mat('#9e3439'),[-2.8,6.35,1.8]);
- // Front-facing window grid on the blue end and a simple entrance.
- for(let f=0;f<4;f++)for(let c=0;c<2;c++){
-  box(.55,.72,.09,mat('#dce4e6'),[3.65,1+f*1.45,-2.38+c*1.3]);
-  box(.43,.59,.05,mat('#477f9c'),[3.65,1+f*1.45,-2.44+c*1.3]);
+ buildingMesh(-4,2,14,5.3,7.3,wallColors[0],1);
+ buildingMesh(7,7.4,8.5,4.4,5.2,wallColors[2],1);
+ buildingMesh(-1,10.7,10.2,4.0,3.7,wallColors[3],0);
+ buildingMesh(-15,7.8,6.5,5.2,3.2,'#d6d7cf',0);
+ // A large schoolyard and a running track formed from smooth ring geometry.
+ const yard=new THREE.Mesh(new THREE.PlaneGeometry(18,12),standard('#8d9a72'));yard.rotation.x=-Math.PI/2;yard.position.set(-13,-.19,-2);yard.receiveShadow=true;scene.add(yard);
+ const track=new THREE.Mesh(new THREE.RingGeometry(3.5,4.7,96),standard('#b96e61'));track.rotation.x=-Math.PI/2;track.position.set(-13,-.16,-2);track.scale.set(1.55,1,1);track.receiveShadow=true;scene.add(track);
+ const field=new THREE.Mesh(new THREE.CircleGeometry(3.45,64),standard('#789267'));field.rotation.x=-Math.PI/2;field.position.set(-13,-.145,-2);field.scale.set(1.55,1,1);scene.add(field);
+ // Curved sidewalks, planting beds, trees with organic crowns, benches and lamp posts.
+ for(const [x,z] of [[-14,-5],[-10,-5],[-18,1],[-7,12],[12,2],[17,7],[1,15],[-22,10]]){
+  const bed=new THREE.Mesh(new THREE.CircleGeometry(1.05,24),standard('#5c704b'));bed.rotation.x=-Math.PI/2;bed.position.set(x,-.17,z);bed.scale.set(1.25,.8,1);scene.add(bed);
+  const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.12,.2,1.8,10),standard('#67503b'));trunk.position.set(x,.65,z);trunk.castShadow=true;scene.add(trunk);
+  const crown=new THREE.Mesh(new THREE.IcosahedronGeometry(1.15,1),standard(['#52714a','#637d50','#496747'][Math.abs(Math.round(x+z))%3]));crown.position.set(x,2.05,z);crown.scale.set(1.1,1.25,.95);crown.castShadow=true;crown.userData.destructible=true;building.add(crown);parts.push(crown);
  }
- box(1.65,2.25,.22,mat('#f1f0e9'),[.2,1.15,-.42]);
- box(.68,1.65,.08,mat('#456a7b'),[-.18,1.05,-.56]);
- box(.68,1.65,.08,mat('#456a7b'),[.55,1.05,-.56]);
- // Entrance steps descending toward the front driveway.
- for(let i=0;i<7;i++)box(4.6,.18,.42,mat('#b7b9b2'),[.2,.09+i*.0,-1.2-i*.43],building,false);
- // Separate blue/white/red-roof building across the inner yard.
- wing(4.7,6.2,7.2,3.4,3,{wall:'#e4e8e6',trim:'#d8e2e4',roof:'#b83b3f',band:'#327aa9'});
- box(7.35,.18,3.55,mat('#2875a6'),[4.7,4.75,6.2]);
- // Lower pale-yellow wing along the hillside with red vertical supports.
- box(9.4,2.65,3.0,mat('#d7c98e'),[-1.1,1.4,8.9]);
- for(let x=-5.3;x<3.4;x+=1.7){
-  box(.18,2.7,.12,mat('#9b493c'),[x,1.4,7.34]);
-  box(.88,.65,.12,mat('#e5e2d3'),[x+.65,1.8,7.29]);
-  box(.7,.49,.06,mat('#6b9bb0'),[x+.65,1.8,7.23]);
+ // Main entrance plaza and curved concrete walkways.
+ const plaza=new THREE.Mesh(new THREE.PlaneGeometry(15,6),concrete);plaza.rotation.x=-Math.PI/2;plaza.position.set(-2,-.13,-3.8);plaza.receiveShadow=true;scene.add(plaza);
+ for(let i=0;i<6;i++){
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(.07,.09,1.2,10),standard('#65747a'));post.position.set(-8+i*2.3,.45,-6.4);post.castShadow=true;post.userData.destructible=true;building.add(post);parts.push(post);
  }
- box(9.8,.2,3.3,mat('#a43c3b'),[-1.1,2.78,8.9]);
- // Neighboring Andong Jungang High School is represented as a connected campus block.
- // It is a visual background structure, so the two school buildings read as one joined complex.
- const highWall=mat('#c9c9bf'), highTrim=mat('#e5e2d8'), highGlass=mat('#6e9eb2');
- box(7.8,5.3,3.7,highWall,[5.0,2.55,10.5],building,false);
- box(7.95,.22,3.85,mat('#a33e3e'),[5.0,5.25,10.5],building,false);
- for(let floor=0;floor<3;floor++)for(let col=0;col<6;col++){
-  const x=1.65+col*1.34, y=1.05+floor*1.55;
-  box(.92,.78,.1,highTrim,[x,y,8.58],building,false);
-  box(.78,.62,.06,highGlass,[x,y,8.51],building,false);
- }
- // Covered connecting passage between the two school blocks.
- box(2.5,.22,1.2,mat('#d7d9d3'),[3.0,2.65,7.4],building,false);
- for(let x=2.0;x<=4.0;x+=.65)box(.09,2.3,.09,mat('#7b8c91'),[x,1.45,7.4],building,false);
- // Neighborhood street grid along the eastern edge and the lower approach road.
- const roadMat=mat('#555d63'), roadLine=mat('#d7d4c8'), sidewalk=mat('#a9a9a0');
- box(7,.08,32,roadMat,[16,-.08,1],building,false);
- box(32,.08,5,roadMat,[0,-.08,-14],building,false);
- box(7.4,.12,32,sidewalk,[11.9,-.03,1],building,false);
- box(32,.12,.7,sidewalk,[0,-.02,-11.1],building,false);
- for(let z=-13;z<16;z+=3.5)box(.09,.025,1.6,roadLine,[16,.0,z],building,false);
- for(let x=-14;x<15;x+=3.5)box(1.6,.025,.09,roadLine,[x,.0,-14],building,false);
- // Small houses and shops on the road side, matching the compact residential blocks in the satellite view.
- for(let i=0;i<7;i++){
-  const x=19.3+(i%3)*2.8, z=-8+Math.floor(i/3)*6.4;
-  const w=2.15+(i%2)*.35, d=2.5;
-  box(w,1.9,d,mat(i%2?'#d9d1c1':'#b7b4ad'),[x,.95,z],building,false);
-  box(w+.08,.18,d+.12,mat(i%3?'#3c6075':'#657078'),[x,1.95,z],building,false);
-  box(.8,.72,.08,mat('#64899b'),[x,1.05,z-d/2-.05],building,false);
-  box(.65,.65,.08,mat('#6d8da0'),[x-w/2-.05,1.0,z],building,false);
- }
- // A simple covered sports hall beside the field.
- box(5.6,2.8,4.8,mat('#e0e2dc'),[-10,1.4,8.5],building,false);
- box(5.75,.22,4.95,mat('#327aa0'),[-10,2.85,8.5],building,false);
- for(let x=-12;x<=-8;x+=1.3)box(.8,1.3,.08,mat('#7399a7'),[x,1.55,6.05],building,false);
- // Yard, driveway, parking area and running track/court beside campus.
- box(17,.12,9,asphalt,[-3,-.12,-5.8],building,false);
- box(8,.08,11,fieldMat,[-10,-.12,1.6],building,false);
- box(7.8,.09,10.8,trackMat,[-10,-.04,1.6],building,false);
- box(6.6,.1,9.4,fieldMat,[-10,.01,1.6],building,false);
- // simple painted sports court markings
- for(let z=-2.4;z<5.6;z+=.9)box(5.8,.025,.035,mat('#e8e7d4'),[-10,.075,z],building,false);
- box(.035,.03,9.3,mat('#e8e7d4'),[-10,.075,1.6],building,false);
- // Parking bays and a few neutral car-shaped props.
- for(let i=0;i<7;i++){
-  const x=-12+i*1.65;
-  box(1.25,.04,2.2,mat('#e5e0cd'),[x,.02,-6.5],building,false);
-  box(1.02,.48,1.8,mat(i%2?'#d5d9d9':'#aab7c0'),[x,.28,-6.5],building,false);
-  box(.78,.16,.72,mat('#667e8c'),[x,.56,-6.5],building,false);
- }
- // Perimeter retaining walls, metal fence and colored panels visible from the road.
- for(let i=0;i<17;i++){
-  const x=-15+i*1.8;
-  box(1.75,.9,.35,mat('#d5d2c8'),[x,.34,-10.3],building,false);
-  box(1.72,.48,.08,mat(i%4===0?'#c44d42':i%2?'#387eae':'#e8e8df'),[x,.98,-10.45],building,false);
-  box(.055,1.3,.055,fenceMat,[x,.95,-10.1],building,false);
- }
- for(let i=0;i<16;i++)box(.055,1.1,.055,fenceMat,[-15,.9,-8.6+i*1.2],building,false);
- // Entrance gate piers and a sign, kept generic and without copied map imagery.
- for(const x of [-6.5,5.4]){
-  box(1.1,2.4,.8,mat('#b9b9b0'),[x,1.2,-9.5],building,false);
-  box(1.16,.22,.86,mat('#454b4b'),[x,2.45,-9.5],building,false);
- }
+ // Gate and a single readable sign; the sign disappears whole when struck.
  const signCanvas=document.createElement('canvas');signCanvas.width=512;signCanvas.height=128;
- const c=signCanvas.getContext('2d');c.fillStyle='#1b3f59';c.fillRect(0,0,512,128);
- c.strokeStyle='#e8f0f2';c.lineWidth=6;c.strokeRect(4,4,504,120);
- c.fillStyle='#fff';c.font='bold 48px sans-serif';c.textAlign='center';c.textBaseline='middle';c.fillText('경덕중학교',256,64);
- const signTex=new THREE.CanvasTexture(signCanvas);
- box(3.5,.85,.12,new THREE.MeshStandardMaterial({map:signTex}),[-.5,5.7,-2.48],building,false);
-
- // Fine campus detailing: roof equipment, gutters, window reflections, entrance canopy,
- // schoolyard planting, sidewalk curbs, street furniture and varied neighborhood roofs.
- const detailMat=mat('#d8dedb'), metalMat=mat('#687982'), warmGlass=mat('#88b4c4',.2);
- // Roof parapets and ventilation boxes on the main classroom wing.
- for(let x=-9;x<=3.5;x+=2.4){
-  box(.48,.42,.5,metalMat,[x,6.72,1.8],building,false);
-  box(.36,.12,.38,detailMat,[x,6.99,1.8],building,false);
+ const ctx=signCanvas.getContext('2d');ctx.fillStyle='#24465b';ctx.fillRect(0,0,512,128);ctx.strokeStyle='#e5edf0';ctx.lineWidth=5;ctx.strokeRect(4,4,504,120);
+ ctx.fillStyle='#fff';ctx.font='bold 48px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('경덕중학교',256,64);
+ const signTex=new THREE.CanvasTexture(signCanvas);signTex.colorSpace=THREE.SRGBColorSpace;
+ const sign=new THREE.Mesh(new THREE.BoxGeometry(4.2,1,.16),new THREE.MeshStandardMaterial({map:signTex}));sign.position.set(-1,2.5,-10.5);sign.castShadow=true;sign.userData.destructible=true;building.add(sign);parts.push(sign);
+ // Low-rise neighborhood and distant green hills make the campus sit in a landscape.
+ for(let i=0;i<14;i++){
+  const x=19+(i%5)*3.3,z=-7+Math.floor(i/5)*7.8,h=1.7+(i%3)*.45;
+  const house=new THREE.Mesh(new THREE.BoxGeometry(2.5,h,2.8),standard(i%2?'#c8c5b9':'#b9b8b0'));
+  house.position.set(x,h/2,z);house.castShadow=true;house.userData.destructible=true;building.add(house);parts.push(house);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(1.95,.9,4),standard(i%3?'#596c7c':'#934b45'));roof.position.set(x,h+.38,z);roof.rotation.y=Math.PI/4;roof.castShadow=true;roof.userData.destructible=true;building.add(roof);parts.push(roof);
  }
- box(8,.12,.16,mat('#c9d2d3'),[-2.8,6.53,-.33],building,false);
- // Add layered window panes and visible mullions to the classroom facade.
- for(let floor=0;floor<4;floor++){
-  const y=1.02+floor*1.55;
-  for(let col=0;col<10;col++){
-   const x=-8.55+col*1.18;
-   box(.035,.7,.035,mat('#d7e0df'),[x,y,-.49],building,false);
-   box(.035,.7,.025,mat('#789eae'),[x+.12,y,-.515],building,false);
-   box(.74,.035,.035,mat('#f0eee7'),[x,y+.38,-.49],building,false);
-  }
+ for(let i=0;i<18;i++){
+  const x=-29+i*3.4,z=22+Math.sin(i*.48)*1.4;
+  const hill=new THREE.Mesh(new THREE.IcosahedronGeometry(3.1+(i%3)*.8,2),standard(i%2?'#627b56':'#71845f'));
+  hill.position.set(x,1.25,z);hill.scale.y=.85;hill.castShadow=true;scene.add(hill);
  }
- // Covered entrance canopy and columns.
- box(3.1,.18,1.35,mat('#dce1dd'),[.2,2.48,-1.15],building,false);
- box(3.2,.09,1.4,mat('#526c7b'),[.2,2.59,-1.15],building,false);
- for(const x of [-1.05,.2,1.45])box(.12,1.25,.12,metalMat,[x,1.82,-1.55],building,false);
- // Paved courtyard with alternating stone panels and a central planted island.
- const paving=mat('#b8bcb8'), pavingDark=mat('#a4aaa7');
- for(let x=-8;x<5;x+=1.25)for(let z=-4.8;z<-2.8;z+=1.05){
-  box(1.18,.035,.98,((Math.round(x+z*2)%3)===0)?pavingDark:paving,[x,-.035,z],building,false);
- }
- box(4.8,.12,1.5,mat('#5b6e59'),[-5.2,-.01,-3.4],building,false);
- for(let i=0;i<5;i++){
-  const x=-7.1+i*.9;
-  const trunk=box(.13,.9,.13,mat('#70533d'),[x,.45,-3.4],building,false);
-  const crown=addPart(new THREE.IcosahedronGeometry(.48,1),mat(i%2?'#456f4b':'#5c8251'),[x,1.15,-3.4],building,false);
- }
- // Walkway bollards, benches and lamps around the public road.
- for(let z=-9;z<12;z+=3.5){
-  box(.12,.8,.12,mat('#394d5a'),[10.7,.4,z],building,false);
-  box(.28,.08,.28,mat('#d8d7ce'),[10.7,.82,z],building,false);
- }
- for(const z of [-8,-2,4,10]){
-  box(.12,2.7,.12,metalMat,[14.4,1.35,z],building,false);
-  box(.7,.1,.12,mat('#e5d6a3'),[14.1,2.68,z],building,false);
- }
- for(const z of [-5,-1,3]){
-  box(1.6,.16,.42,mat('#795c46'),[8.8,.55,z],building,false);
-  box(1.55,.12,.38,mat('#9aab9d'),[8.8,.7,z],building,false);
-  for(const x of [8.2,9.4])box(.09,.52,.09,metalMat,[x,.28,z],building,false);
- }
- // Detailed sports ground: athletics lanes, football markings, goals and basketball key.
- for(let i=0;i<4;i++){
-  const inset=i*.34;
-  const lane=new THREE.Mesh(new THREE.RingGeometry(3.35-inset,3.38-inset,80,.1),mat('#e7d5bf'));
-  lane.rotation.x=-Math.PI/2;lane.position.set(-10,.078+i*.001,1.6);building.add(lane);
- }
- box(5.3,.025,.035,mat('#f4f0df'),[-10,.08,1.6],building,false);
- box(.035,.025,8.1,mat('#f4f0df'),[-10,.08,1.6],building,false);
- for(const z of [-2.2,5.4]){
-  box(2.1,.025,.035,mat('#f4f0df'),[-10,.08,z],building,false);
-  box(.035,.025,1.6,mat('#f4f0df'),[-11.05,.08,z+.8],building,false);
-  box(.035,.025,1.6,mat('#f4f0df'),[-8.95,.08,z+.8],building,false);
- }
- // Tree-lined western slope with layered foliage and varied canopy sizes.
- for(let i=0;i<28;i++){
-  const x=-16+(i%7)*1.35, z=5.5+Math.floor(i/7)*1.8;
-  const height=1.6+(i%4)*.25;
-  box(.16,height,.16,mat('#5e4a38'),[x,height/2,z],building,false);
-  const crown=addPart(new THREE.IcosahedronGeometry(.78+(i%3)*.1,1),mat(['#476746','#56794d','#668454'][i%3]),[x,height+.25,z],building,false);
-  crown.scale.set(1,1.15,.95);
- }
- // A little rooftop variety for shops and homes beyond the main road.
- for(let i=0;i<9;i++){
-  const x=19.2+(i%3)*2.65,z=10+Math.floor(i/3)*3.1;
-  box(2.0,.16,2.25,mat(i%2?'#596f7d':'#8a6257'),[x,2.02,z],building,false);
-  box(.16,.55,.16,mat('#d9d7ce'),[x-.62,1.15,z-1.18],building,false);
-  box(.16,.55,.16,mat('#d9d7ce'),[x+.62,1.15,z-1.18],building,false);
-  box(.72,.62,.07,warmGlass,[x,1.15,z-1.29],building,false);
- }
- // Painted pedestrian crossing and curb markings at the street junction.
- for(let i=0;i<7;i++)box(.42,.025,1.4,mat('#eee9d9'),[12.0+i*.52,.01,-11.0],building,false);
- for(let i=0;i<10;i++)box(.12,.025,.65,mat('#e7e1d1'),[8.1+i*.72,.01,-11.65],building,false);
-
  scene.add(building);
  updateStatus();controls.target.set(-2,2.4,0);controls.update();
 }
