@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1726"><title>MEDICORE · 건강관리</title>
+<style>
+:root{color-scheme:dark;--bg:#091421;--panel:#122237;--panel2:#172b43;--line:#2a405a;--muted:#9eb0c6;--text:#f0f6ff;--mint:#66e0c0;--blue:#72baff;--warn:#ffd17b;--red:#ff9b9b}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#18324c 0,#091421 55%);color:var(--text);font:15px system-ui,-apple-system,"Noto Sans KR",sans-serif;min-height:100vh}
+header{padding:22px 18px 15px;border-bottom:1px solid var(--line);background:#091421ed;position:sticky;top:0;z-index:5;backdrop-filter:blur(14px)}
+.brand{font-size:11px;letter-spacing:3px;color:var(--mint);font-weight:900}.headrow{display:flex;justify-content:space-between;align-items:center;gap:10px}.title{font-size:25px;font-weight:900;margin:5px 0}.sub{font-size:12px;color:var(--muted)}
+main{max-width:760px;margin:auto;padding:16px 13px 92px}.greeting{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:4px 2px 14px}.greeting strong{font-size:18px}.date{color:var(--muted);font-size:12px;text-align:right}
+.notice{background:#172b3b;border:1px solid #37546b;border-radius:13px;padding:12px 13px;font-size:12px;line-height:1.55;color:#d7e7f4;margin-bottom:14px}.notice b{color:var(--warn)}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{background:linear-gradient(145deg,#172b43,#101e30);border:1px solid var(--line);border-radius:17px;padding:14px;min-width:0}.wide{grid-column:1/-1}.label{font-size:11px;letter-spacing:1.2px;color:var(--mint);font-weight:850}.metric{font-size:27px;font-weight:850;margin:8px 0 2px}.muted{color:var(--muted);font-size:12px;line-height:1.5}.section{font-size:17px;font-weight:850;margin:21px 2px 10px}.row{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-top:1px solid #2a405a;font-size:12px;margin-top:7px}.row span{color:var(--muted)}button,input,select,textarea{font:inherit}button{cursor:pointer}.primary{background:linear-gradient(120deg,#087e91,#1766a1);border:0;color:white;font-weight:800;border-radius:11px;padding:12px 14px}.secondary{background:#1b3048;color:var(--text);border:1px solid var(--line);border-radius:11px;padding:10px 12px;font-weight:700}.danger{background:#48252c;border:1px solid #75414b;color:#ffd9d9;border-radius:10px;padding:9px 11px}.field{width:100%;background:#0d1a2a;border:1px solid #344c67;border-radius:10px;padding:11px;color:var(--text);min-width:0}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.fieldwrap{display:flex;flex-direction:column;gap:6px}.fieldwrap label{font-size:12px;color:var(--muted)}.form-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.form-actions button{flex:1}.tabs{position:fixed;bottom:0;left:0;right:0;z-index:8;display:flex;justify-content:center;background:#091421f2;border-top:1px solid var(--line);padding:8px max(8px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom));backdrop-filter:blur(14px)}.tabs-inner{display:flex;width:100%;max-width:760px;justify-content:space-around;gap:5px}.tab{border:0;background:transparent;color:var(--muted);padding:7px 9px;border-radius:10px;font-size:11px;min-width:0;flex:1}.tab span{display:block;font-size:19px;margin-bottom:2px}.tab.active{background:#18334a;color:var(--mint);font-weight:800}.view{display:none}.view.active{display:block}.entry{padding:11px 0;border-bottom:1px solid var(--line)}.entry:last-child{border:0}.entrytop{display:flex;justify-content:space-between;gap:8px;align-items:center}.entrytitle{font-weight:750}.entrymeta{font-size:11px;color:var(--muted);margin-top:4px}.empty{color:var(--muted);font-size:13px;padding:14px 0}.pill{display:inline-block;border:1px solid #34536c;border-radius:99px;padding:4px 8px;font-size:10px;color:var(--mint)}canvas{width:100%;height:150px;display:block}.smallbtn{padding:6px 9px;font-size:11px}.foot{font-size:11px;line-height:1.6;color:var(--muted);margin-top:18px}
+@media(max-width:390px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.formgrid{grid-template-columns:1fr}.metric{font-size:25px}}
+</style></head>
+<body>
+<header><div class="headrow"><div><div class="brand">PERSONAL HEALTH COMPANION</div><div class="title">MEDICORE</div><div class="sub">나의 건강을 기록하고 관리하는 공간</div></div><span class="pill">LOCAL MODE</span></div></header>
+<main>
+<section id="dashboard" class="view active">
+<div class="greeting"><div><strong>오늘의 건강 요약</strong><div class="muted">기록은 꾸준히 쌓일수록 도움이 됩니다.</div></div><div class="date" id="today"></div></div>
+<div class="notice"><b>안내</b> · MEDICORE는 건강 기록·일정 관리 도구이며 의료기기가 아닙니다. 질병 진단, 응급 판단 또는 치료 결정을 대신하지 않습니다. 급한 증상이나 응급상황은 앱 기록보다 119 또는 의료진의 도움을 우선하세요.</div>
+<div class="grid">
+<div class="card"><div class="label">BLOOD PRESSURE</div><div class="metric" id="bp">-- / --</div><div class="muted">최근 혈압 · mmHg</div></div>
+<div class="card"><div class="label">HEART RATE</div><div class="metric" id="pulse">--</div><div class="muted">최근 맥박 · 회/분</div></div>
+<div class="card"><div class="label">BODY TEMPERATURE</div><div class="metric" id="temp">--</div><div class="muted">최근 체온 · °C</div></div>
+<div class="card"><div class="label">WEIGHT</div><div class="metric" id="weight">--</div><div class="muted">최근 체중 · kg</div></div>
+<div class="card wide"><div class="label">RECENT ACTIVITY</div><div id="summary" class="muted" style="margin-top:8px">아직 저장된 건강 기록이 없습니다.</div></div>
+</div>
+<div class="section">최근 건강 기록</div><div class="card" id="recent"><div class="empty">기록이 여기에 표시됩니다.</div></div>
+</section>
+<section id="records" class="view">
+<div class="section" style="margin-top:4px">건강 기록 추가</div>
+<div class="card">
+<div class="muted" style="margin-bottom:12px">측정한 값만 입력하세요. 측정하지 않은 항목은 비워 두면 됩니다.</div>
+<div class="formgrid">
+<div class="fieldwrap"><label for="sdate">측정 날짜와 시간</label><input class="field" id="sdate" type="datetime-local"></div>
+<div class="fieldwrap"><label for="sys">수축기 혈압 (mmHg)</label><input class="field" id="sys" type="number" min="40" max="300" placeholder="예: 120"></div>
+<div class="fieldwrap"><label for="dia">이완기 혈압 (mmHg)</label><input class="field" id="dia" type="number" min="20" max="200" placeholder="예: 80"></div>
+<div class="fieldwrap"><label for="pulseIn">맥박 (회/분)</label><input class="field" id="pulseIn" type="number" min="20" max="250" placeholder="예: 72"></div>
+<div class="fieldwrap"><label for="tempIn">체온 (°C)</label><input class="field" id="tempIn" type="number" min="30" max="45" step="0.1" placeholder="예: 36.5"></div>
+<div class="fieldwrap"><label for="weightIn">체중 (kg)</label><input class="field" id="weightIn" type="number" min="1" max="500" step="0.1" placeholder="예: 60.0"></div>
+<div class="fieldwrap"><label for="glucose">혈당 (mg/dL)</label><input class="field" id="glucose" type="number" min="10" max="1000" placeholder="예: 95"></div>
+<div class="fieldwrap"><label for="memo">메모 (선택)</label><input class="field" id="memo" maxlength="160" placeholder="측정 상황 등"></div>
+</div>
+<div class="form-actions"><button class="primary" id="saveRecord">기록 저장</button><button class="secondary" id="clearRecord">입력 지우기</button></div>
+</div>
+<div class="section">혈압·맥박 기록 추이</div><div class="card"><canvas id="chart" width="700" height="180"></canvas><div class="muted">최근 10회 기록을 순서대로 표시합니다. 그래프는 진단이나 정상 여부 판정이 아닙니다.</div></div>
+<div class="section">전체 기록</div><div class="card" id="allRecords"><div class="empty">저장된 기록이 없습니다.</div></div>
+</section>
+<section id="meds" class="view">
+<div class="section" style="margin-top:4px">복약 일정 관리</div>
+<div class="notice">약 이름과 복용 지침은 처방전·약 봉투에 적힌 내용을 그대로 입력하세요. 앱이 약의 용량이나 복용 여부를 판단하지 않습니다. 복용 변경은 의사 또는 약사와 상의하세요.</div>
+<div class="card"><div class="formgrid">
+<div class="fieldwrap"><label for="medName">약 이름</label><input id="medName" class="field" maxlength="70" placeholder="처방전의 약 이름"></div>
+<div class="fieldwrap"><label for="medDose">처방된 복용 안내</label><input id="medDose" class="field" maxlength="70" placeholder="예: 처방전 안내대로"></div>
+<div class="fieldwrap"><label for="medTime">알림 시간</label><input id="medTime" class="field" type="time" value="08:00"></div>
+<div class="fieldwrap"><label for="medNote">메모 (선택)</label><input id="medNote" class="field" maxlength="100" placeholder="예: 식후 (처방 지시 확인)"></div>
+</div><div class="form-actions"><button class="primary" id="addMed">일정 추가</button><button class="secondary" id="notify">알림 권한 설정</button></div><div class="muted" style="margin-top:9px">알림은 이 페이지가 열려 있고 브라우저가 허용할 때만 동작할 수 있습니다. 앱을 닫거나 기기 절전 상태에서는 알림이 보장되지 않습니다.</div></div>
+<div class="section">등록된 일정</div><div class="card" id="medList"><div class="empty">등록된 복약 일정이 없습니다.</div></div>
+</section>
+<section id="tools" class="view">
+<div class="section" style="margin-top:4px">건강 데이터 관리</div>
+<div class="card">
+<div class="entry"><div class="entrytitle">데이터 내보내기</div><div class="entrymeta">저장된 건강 기록과 복약 일정을 JSON 파일로 백업합니다.</div><div style="margin-top:9px"><button class="primary" id="export">백업 파일 다운로드</button></div></div>
+<div class="entry"><div class="entrytitle">백업 가져오기</div><div class="entrymeta">이 앱에서 내보낸 JSON 백업을 복원합니다. 현재 데이터에 합쳐집니다.</div><div style="margin-top:9px"><input class="field" id="importFile" type="file" accept="application/json"></div></div>
+<div class="entry"><div class="entrytitle">모든 데이터 삭제</div><div class="entrymeta">이 브라우저에 저장된 건강 기록과 복약 일정을 지웁니다. 되돌릴 수 없습니다.</div><div style="margin-top:9px"><button class="danger" id="deleteAll">모든 데이터 삭제</button></div></div>
+</div>
+<div class="section">개인정보 및 사용 안내</div>
+<div class="card muted">
+• 입력한 정보는 이 브라우저의 기기 내 저장공간(localStorage)에 저장되며 앱 제작자의 서버로 전송되지 않습니다.<br><br>
+• 같은 휴대폰·브라우저를 사용하는 다른 사람도 기기 접근 권한이 있으면 정보를 볼 수 있습니다. 공용 기기에서는 민감한 정보를 입력하지 마세요.<br><br>
+• 브라우저 데이터 삭제, 시크릿 모드 종료 또는 기기 변경 시 기록이 사라질 수 있습니다. 백업 파일은 안전한 곳에 보관하고 타인과 공유하지 마세요.<br><br>
+• 본 앱은 의료기기 또는 전자의무기록 시스템이 아니며 의료진의 진료를 대체하지 않습니다.
+</div>
+</section>
+</main>
+<nav class="tabs"><div class="tabs-inner">
+<button class="tab active" data-view="dashboard"><span>⌂</span>홈</button>
+<button class="tab" data-view="records"><span>＋</span>건강 기록</button>
+<button class="tab" data-view="meds"><span>◷</span>복약 일정</button>
+<button class="tab" data-view="tools"><span>⚙</span>데이터 관리</button>
+</div></nav>
+<script>
+const KEY="medicore_v1_data";
+let db={records:[],meds:[]};
+const $=id=>document.getElementById(id);
+function load(){try{let x=JSON.parse(localStorage.getItem(KEY)||"null");if(x&&Array.isArray(x.records)&&Array.isArray(x.meds))db=x}catch(e){console.warn("저장 데이터 읽기 실패",e)}}
+function persist(){try{localStorage.setItem(KEY,JSON.stringify(db));return true}catch(e){alert("기기 저장공간에 저장하지 못했습니다. 브라우저 저장공간 설정을 확인해 주세요.");return false}}
+function dateText(v){return new Date(v).toLocaleString("ko-KR",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"})}
+function val(v,unit){return v===null||v===undefined||v===""?"--":v+" "+unit}
+function escapeHTML(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function showView(name){document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id===name));document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="records")drawChart()}
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
+function render(){
+ const sorted=[...db.records].sort((a,b)=>new Date(b.date)-new Date(a.date)),r=sorted[0];
+ $("bp").textContent=r&&r.sys&&r.dia?r.sys+" / "+r.dia:"-- / --";
+ $("pulse").textContent=r&&r.pulse? r.pulse+" bpm":"--";
+ $("temp").textContent=r&&r.temp?r.temp+"°C":"--";
+ $("weight").textContent=r&&r.weight?r.weight+" kg":"--";
+ $("summary").textContent=db.records.length?("총 "+db.records.length+"건의 기록이 저장되어 있습니다. 최근 기록: "+dateText(r.date)):"아직 저장된 건강 기록이 없습니다. 건강 기록 메뉴에서 측정값을 입력할 수 있습니다.";
+ $("recent").innerHTML=sorted.length?sorted.slice(0,3).map(recordHTML).join(""):'<div class="empty">최근 기록이 없습니다.</div>';
+ $("allRecords").innerHTML=sorted.length?sorted.map(recordHTML).join(""):'<div class="empty">저장된 기록이 없습니다.</div>';
+ $("medList").innerHTML=db.meds.length?db.meds.slice().sort((a,b)=>a.time.localeCompare(b.time)).map(m=>'<div class="entry"><div class="entrytop"><div><div class="entrytitle">'+escapeHTML(m.name)+'</div><div class="entrymeta">'+escapeHTML(m.dose||"복용 안내 미입력")+' · '+escapeHTML(m.time)+(m.note?" · "+escapeHTML(m.note):"")+'</div></div><button class="danger smallbtn" data-delmed="'+m.id+'">삭제</button></div></div>').join(""):'<div class="empty">등록된 복약 일정이 없습니다.</div>';
+ document.querySelectorAll("[data-delmed]").forEach(b=>b.onclick=()=>{db.meds=db.meds.filter(m=>m.id!==b.dataset.delmed);persist();render()});
+ drawChart();
+}
+function recordHTML(r){let bits=[];if(r.sys&&r.dia)bits.push("혈압 "+r.sys+"/"+r.dia);if(r.pulse)bits.push("맥박 "+r.pulse);if(r.temp)bits.push("체온 "+r.temp+"°C");if(r.weight)bits.push("체중 "+r.weight+"kg");if(r.glucose)bits.push("혈당 "+r.glucose+"mg/dL");return '<div class="entry"><div class="entrytop"><div class="entrytitle">'+escapeHTML(bits.join(" · ")||"메모 기록")+'</div><button class="danger smallbtn" data-delrec="'+r.id+'">삭제</button></div><div class="entrymeta">'+dateText(r.date)+(r.memo?" · "+escapeHTML(r.memo):"")+'</div></div>'}
+function drawChart(){let c=$("chart");if(!c)return;let ctx=c.getContext("2d"),w=c.width,h=c.height;ctx.clearRect(0,0,w,h);ctx.strokeStyle="#2a405a";ctx.lineWidth=1;for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(0,h*i/4);ctx.lineTo(w,h*i/4);ctx.stroke()}let arr=db.records.filter(r=>r.sys&&r.dia).sort((a,b)=>new Date(a.date)-new Date(b.date)).slice(-10);if(!arr.length){ctx.fillStyle="#9eb0c6";ctx.font="16px sans-serif";ctx.fillText("혈압 기록을 추가하면 그래프가 표시됩니다.",15,75);return}let min=Math.min(40,...arr.map(x=>+x.dia)),max=Math.max(160,...arr.map(x=>+x.sys)),x=i=>arr.length===1?w/2:20+i*(w-40)/(arr.length-1),y=v=>h-18-(v-min)/(max-min||1)*(h-38);function line(k,color){ctx.strokeStyle=color;ctx.lineWidth=3;ctx.beginPath();arr.forEach((r,i)=>i?ctx.lineTo(x(i),y(+r[k])):ctx.moveTo(x(i),y(+r[k])));ctx.stroke();arr.forEach((r,i)=>{ctx.fillStyle=color;ctx.beginPath();ctx.arc(x(i),y(+r[k]),4,0,Math.PI*2);ctx.fill()})}line("sys","#72baff");line("dia","#66e0c0");ctx.font="12px sans-serif";ctx.fillStyle="#72baff";ctx.fillText("수축기",10,14);ctx.fillStyle="#66e0c0";ctx.fillText("이완기",70,14)}
+$("saveRecord").onclick=()=>{let fields=["sys","dia","pulseIn","tempIn","weightIn","glucose"],v={};for(let id of fields){let raw=$(id).value.trim();v[id]=raw===""?null:Number(raw);if(raw!==""&&!Number.isFinite(v[id]))return alert("숫자 값을 확인해 주세요.");}
+if((v.sys===null)!==(v.dia===null))return alert("혈압은 수축기와 이완기 값을 함께 입력해 주세요.");
+const limits={sys:[40,300],dia:[20,200],pulseIn:[20,250],tempIn:[30,45],weightIn:[1,500],glucose:[10,1000]};for(let id of fields)if(v[id]!==null&&(v[id]<limits[id][0]||v[id]>limits[id][1]))return alert("입력 범위를 확인해 주세요: "+id);
+let date=$("sdate").value;if(!date)return alert("측정 날짜와 시간을 입력해 주세요.");
+db.records.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),date:new Date(date).toISOString(),sys:v.sys,dia:v.dia,pulse:v.pulseIn,temp:v.tempIn,weight:v.weightIn,glucose:v.glucose,memo:$("memo").value.trim()});if(persist()){fields.forEach(id=>$(id).value="");$("memo").value="";render();showView("dashboard");alert("건강 기록을 이 기기에 저장했습니다.")}};
+$("clearRecord").onclick=()=>["sys","dia","pulseIn","tempIn","weightIn","glucose","memo"].forEach(id=>$(id).value="");
+$("allRecords").addEventListener("click",e=>{let b=e.target.closest("[data-delrec]");if(b&&confirm("이 건강 기록을 삭제할까요?")){db.records=db.records.filter(r=>r.id!==b.dataset.delrec);persist();render()}});
+$("addMed").onclick=()=>{let name=$("medName").value.trim(),time=$("medTime").value;if(!name||!time)return alert("약 이름과 알림 시간을 입력해 주세요.");db.meds.push({id:crypto.randomUUID?crypto.randomUUID():String(Date.now()),name,dose:$("medDose").value.trim(),time,note:$("medNote").value.trim()});if(persist()){["medName","medDose","medNote"].forEach(id=>$(id).value="");render();alert("복약 일정이 저장되었습니다. 알림은 앱이 열려 있을 때만 동작할 수 있습니다.")}};
+$("notify").onclick=async()=>{if(!("Notification"in window))return alert("이 브라우저는 알림 기능을 지원하지 않습니다.");let p=await Notification.requestPermission();alert(p==="granted"?"알림 권한이 허용되었습니다.":"알림 권한이 허용되지 않았습니다.")};
+function checkReminders(){if(!("Notification"in window)||Notification.permission!=="granted")return;let now=new Date(),t=String(now.getHours()).padStart(2,"0")+":"+String(now.getMinutes()).padStart(2,"0"),day=now.toISOString().slice(0,10);db.meds.forEach(m=>{let key="medicore_notice_"+m.id+"_"+day;if(m.time===t&&!sessionStorage.getItem(key)){new Notification("MEDICORE 복약 일정",{body:m.name+" · "+(m.dose||"처방된 안내를 확인하세요")});sessionStorage.setItem(key,"1")}})}
+$("export").onclick=()=>{let blob=new Blob([JSON.stringify({version:1,exportedAt:new Date().toISOString(),...db},null,2)],{type:"application/json"}),a=document.createElement("a"),u=URL.createObjectURL(blob);a.href=u;a.download="medicore-backup-"+new Date().toISOString().slice(0,10)+".json";a.click();URL.revokeObjectURL(u)};
+$("importFile").onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let x=JSON.parse(await f.text());if(!Array.isArray(x.records)||!Array.isArray(x.meds))throw Error("백업 형식이 올바르지 않습니다.");if(!confirm("백업의 기록을 현재 데이터에 추가할까요?"))return;db.records.push(...x.records);db.meds.push(...x.meds);persist();render();alert("백업 데이터를 가져왔습니다.")}catch(err){alert("가져오지 못했습니다: "+err.message)}e.target.value=""};
+$("deleteAll").onclick=()=>{if(confirm("저장된 모든 건강 기록과 복약 일정을 영구 삭제할까요?")&&confirm("정말 삭제할까요?")){db={records:[],meds:[]};persist();render();alert("이 브라우저의 데이터가 삭제되었습니다.")}};
+function init(){load();let d=new Date();$("today").textContent=d.toLocaleDateString("ko-KR",{year:"numeric",month:"long",day:"numeric",weekday:"short"});$("sdate").value=new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16);render();setInterval(checkReminders,15000);checkReminders()}
+init();
+</script>
+</body></html>
